@@ -7,64 +7,24 @@ import { Save, Plus, Trash2, GripVertical, ToggleLeft, ToggleRight, Edit2, Check
 import type { Package, Location, Feature, InfoCard, SiteSettings } from '@/types'
 import { formatPrice } from '@/lib/utils'
 
-interface Props {
-  settings: SiteSettings
-  packages: Package[]
-  locations: Location[]
-  features: Feature[]
-  infoCards: InfoCard[]
-}
+// ─── Tüm panel bileşenleri ContentClient DIŞINDA tanımlanmış ───
+// İçeride tanımlansaydı her state değişiminde yeniden oluşturulur,
+// React bunları yeni tip sayar, input focus kaybı yaşanır.
 
-type Tab = 'settings' | 'packages' | 'locations' | 'features' | 'info_cards'
-
-export default function ContentClient({ settings: initialSettings, packages: initialPackages, locations: initialLocations, features: initialFeatures, infoCards: initialInfoCards }: Props) {
-  const [activeTab, setActiveTab] = useState<Tab>('settings')
-  const supabase = createClient()
-
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'settings', label: '⚙️ Site Ayarları' },
-    { key: 'packages', label: '📦 Paketler' },
-    { key: 'locations', label: '📍 Lokasyonlar' },
-    { key: 'features', label: '✨ Özellikler' },
-    { key: 'info_cards', label: '🃏 Bilgi Kartları' },
-  ]
-
-  return (
-    <div>
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-2 mb-6 bg-white rounded-2xl border border-gray-100 p-1.5 shadow-sm">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === t.key ? 'bg-[#FF6B35] text-white shadow' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'settings' && <SiteSettingsPanel settings={initialSettings} />}
-      {activeTab === 'packages' && <PackagesPanel packages={initialPackages} />}
-      {activeTab === 'locations' && <LocationsPanel locations={initialLocations} />}
-      {activeTab === 'features' && <FeaturesPanel features={initialFeatures} />}
-      {activeTab === 'info_cards' && <InfoCardsPanel infoCards={initialInfoCards} />}
-    </div>
-  )
-}
+const INPUT_CLS = 'w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] text-sm'
+const SMALL_INPUT_CLS = 'px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]'
 
 // ===================== SITE SETTINGS =====================
 function SiteSettingsPanel({ settings: init }: { settings: SiteSettings }) {
   const [s, setS] = useState<SiteSettings>(init)
   const [saving, setSaving] = useState(false)
-  const supabase = createClient()
 
-  const set = (key: keyof SiteSettings, value: string) => setS((p) => ({ ...p, [key]: value }))
+  const set = (key: keyof SiteSettings, value: string) =>
+    setS((p) => ({ ...p, [key]: value }))
 
   const save = async () => {
     setSaving(true)
+    const supabase = createClient()
     const entries = Object.entries(s).filter(([, v]) => v !== undefined)
     const { error } = await supabase.from('site_settings').upsert(
       entries.map(([key, value]) => ({ key, value: value ?? '', updated_at: new Date().toISOString() }))
@@ -74,46 +34,42 @@ function SiteSettingsPanel({ settings: init }: { settings: SiteSettings }) {
     setSaving(false)
   }
 
-  const Field = ({ label, k, multiline }: { label: string; k: keyof SiteSettings; multiline?: boolean }) => (
-    <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
-      {multiline ? (
-        <textarea
-          rows={4}
-          value={s[k] ?? ''}
-          onChange={(e) => set(k, e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] text-sm resize-none"
-        />
-      ) : (
-        <input
-          type="text"
-          value={s[k] ?? ''}
-          onChange={(e) => set(k, e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] text-sm"
-        />
-      )}
-    </div>
-  )
-
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <Field label="Site Başlığı" k="site_title" />
-        <Field label="Site Sloganı" k="site_slogan" />
-        <Field label="Hero Başlığı" k="hero_title" />
-        <Field label="Hero CTA Metni" k="hero_cta_text" />
-        <div className="md:col-span-2"><Field label="Hero Alt Başlığı" k="hero_subtitle" multiline /></div>
-        <div className="md:col-span-2"><Field label="Hakkında Metni" k="about_text" multiline /></div>
-        <Field label="Footer Sloganı" k="footer_slogan" />
-        <Field label="WhatsApp Numarası (90XXXXXXXXXX)" k="whatsapp_number" />
-        <Field label="Instagram URL" k="instagram_url" />
+        {([
+          ['Site Başlığı', 'site_title', false],
+          ['Site Sloganı', 'site_slogan', false],
+          ['Hero Başlığı', 'hero_title', false],
+          ['Hero CTA Metni', 'hero_cta_text', false],
+          ['Footer Sloganı', 'footer_slogan', false],
+          ['WhatsApp Numarası (90XXXXXXXXXX)', 'whatsapp_number', false],
+          ['Instagram URL', 'instagram_url', false],
+        ] as [string, keyof SiteSettings, boolean][]).map(([label, k]) => (
+          <div key={k}>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
+            <input
+              type="text"
+              value={s[k] ?? ''}
+              onChange={(e) => set(k, e.target.value)}
+              className={INPUT_CLS}
+            />
+          </div>
+        ))}
+        <div className="md:col-span-2">
+          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Hero Alt Başlığı</label>
+          <textarea rows={3} value={s.hero_subtitle ?? ''} onChange={(e) => set('hero_subtitle', e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] text-sm resize-none" />
+        </div>
+        <div className="md:col-span-2">
+          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Hakkında Metni</label>
+          <textarea rows={5} value={s.about_text ?? ''} onChange={(e) => set('about_text', e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] text-sm resize-none" />
+        </div>
       </div>
       <div className="mt-6 flex justify-end">
-        <button
-          onClick={save}
-          disabled={saving}
-          className="flex items-center gap-2 px-6 py-3 bg-[#FF6B35] text-white rounded-xl font-bold hover:bg-orange-500 transition-all disabled:opacity-60"
-        >
+        <button onClick={save} disabled={saving}
+          className="flex items-center gap-2 px-6 py-3 bg-[#FF6B35] text-white rounded-xl font-bold hover:bg-orange-500 transition-all disabled:opacity-60">
           <Save size={16} />
           {saving ? 'Kaydediliyor...' : 'Kaydet'}
         </button>
@@ -129,9 +85,9 @@ function PackagesPanel({ packages: init }: { packages: Package[] }) {
   const [editData, setEditData] = useState<Partial<Package>>({})
   const [showAdd, setShowAdd] = useState(false)
   const [newPkg, setNewPkg] = useState({ name: '', price: '', description: '', badge: '', is_featured: false })
-  const supabase = createClient()
 
   const toggleActive = async (pkg: Package) => {
+    const supabase = createClient()
     const { error } = await supabase.from('packages').update({ is_active: !pkg.is_active }).eq('id', pkg.id)
     if (error) { toast.error('Güncelleme başarısız.'); return }
     setPackages((p) => p.map((x) => x.id === pkg.id ? { ...x, is_active: !pkg.is_active } : x))
@@ -142,12 +98,10 @@ function PackagesPanel({ packages: init }: { packages: Package[] }) {
 
   const saveEdit = async () => {
     if (!editingId) return
+    const supabase = createClient()
     const { error } = await supabase.from('packages').update({
-      name: editData.name,
-      price: editData.price,
-      description: editData.description,
-      badge: editData.badge,
-      is_featured: editData.is_featured,
+      name: editData.name, price: editData.price,
+      description: editData.description, badge: editData.badge, is_featured: editData.is_featured,
     }).eq('id', editingId)
     if (error) { toast.error('Güncelleme başarısız.'); return }
     setPackages((p) => p.map((x) => x.id === editingId ? { ...x, ...editData } : x))
@@ -156,6 +110,7 @@ function PackagesPanel({ packages: init }: { packages: Package[] }) {
   }
 
   const deletePkg = async (id: string) => {
+    const supabase = createClient()
     const { error } = await supabase.from('packages').delete().eq('id', id)
     if (error) { toast.error('Silinemedi.'); return }
     setPackages((p) => p.filter((x) => x.id !== id))
@@ -164,14 +119,11 @@ function PackagesPanel({ packages: init }: { packages: Package[] }) {
 
   const addPkg = async () => {
     if (!newPkg.name || !newPkg.price) { toast.error('Ad ve fiyat zorunlu.'); return }
+    const supabase = createClient()
     const { data, error } = await supabase.from('packages').insert({
-      name: newPkg.name,
-      price: parseInt(newPkg.price),
-      description: newPkg.description || null,
-      badge: newPkg.badge || null,
-      is_featured: newPkg.is_featured,
-      is_active: true,
-      sort_order: packages.length + 1,
+      name: newPkg.name, price: parseInt(newPkg.price),
+      description: newPkg.description || null, badge: newPkg.badge || null,
+      is_featured: newPkg.is_featured, is_active: true, sort_order: packages.length + 1,
     }).select().single()
     if (error) { toast.error('Eklenemedi.'); return }
     setPackages((p) => [...p, data])
@@ -184,10 +136,8 @@ function PackagesPanel({ packages: init }: { packages: Package[] }) {
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
         <span className="font-bold text-[#1B2A4A]">{packages.length} Paket</span>
-        <button
-          onClick={() => setShowAdd(!showAdd)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#FF6B35] text-white rounded-xl text-sm font-bold hover:bg-orange-500 transition-all"
-        >
+        <button onClick={() => setShowAdd(!showAdd)}
+          className="flex items-center gap-2 px-4 py-2 bg-[#FF6B35] text-white rounded-xl text-sm font-bold hover:bg-orange-500 transition-all">
           <Plus size={15} /> Yeni Paket
         </button>
       </div>
@@ -195,18 +145,24 @@ function PackagesPanel({ packages: init }: { packages: Package[] }) {
       {showAdd && (
         <div className="px-6 py-4 bg-orange-50 border-b border-orange-100">
           <div className="grid grid-cols-2 gap-3 mb-3">
-            <input placeholder="Paket adı *" value={newPkg.name} onChange={(e) => setNewPkg(p => ({ ...p, name: e.target.value }))}
-              className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
-            <input placeholder="Fiyat (₺) *" type="number" value={newPkg.price} onChange={(e) => setNewPkg(p => ({ ...p, price: e.target.value }))}
-              className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
+            <input placeholder="Paket adı *" value={newPkg.name}
+              onChange={(e) => setNewPkg(p => ({ ...p, name: e.target.value }))}
+              className={SMALL_INPUT_CLS} />
+            <input placeholder="Fiyat (₺) *" type="number" value={newPkg.price}
+              onChange={(e) => setNewPkg(p => ({ ...p, price: e.target.value }))}
+              className={SMALL_INPUT_CLS} />
           </div>
-          <textarea placeholder="Açıklama" rows={2} value={newPkg.description} onChange={(e) => setNewPkg(p => ({ ...p, description: e.target.value }))}
-            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35] resize-none mb-3" />
+          <textarea placeholder="Açıklama" rows={2} value={newPkg.description}
+            onChange={(e) => setNewPkg(p => ({ ...p, description: e.target.value }))}
+            className={`w-full ${SMALL_INPUT_CLS} resize-none mb-3`} />
           <div className="flex gap-3 items-center">
-            <input placeholder="Rozet (ör: En Popüler)" value={newPkg.badge} onChange={(e) => setNewPkg(p => ({ ...p, badge: e.target.value }))}
-              className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
+            <input placeholder="Rozet (ör: En Popüler)" value={newPkg.badge}
+              onChange={(e) => setNewPkg(p => ({ ...p, badge: e.target.value }))}
+              className={`flex-1 ${SMALL_INPUT_CLS}`} />
             <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
-              <input type="checkbox" checked={newPkg.is_featured} onChange={(e) => setNewPkg(p => ({ ...p, is_featured: e.target.checked }))} className="accent-[#FF6B35]" />
+              <input type="checkbox" checked={newPkg.is_featured}
+                onChange={(e) => setNewPkg(p => ({ ...p, is_featured: e.target.checked }))}
+                className="accent-[#FF6B35]" />
               Öne çıkan
             </label>
             <button onClick={addPkg} className="px-4 py-2.5 bg-[#FF6B35] text-white rounded-xl text-sm font-bold hover:bg-orange-500">Ekle</button>
@@ -223,18 +179,24 @@ function PackagesPanel({ packages: init }: { packages: Package[] }) {
               {editingId === pkg.id ? (
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-2">
-                    <input value={editData.name ?? ''} onChange={(e) => setEditData(p => ({ ...p, name: e.target.value }))}
-                      className="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
-                    <input type="number" value={editData.price ?? ''} onChange={(e) => setEditData(p => ({ ...p, price: parseInt(e.target.value) }))}
-                      className="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
+                    <input value={editData.name ?? ''}
+                      onChange={(e) => setEditData(p => ({ ...p, name: e.target.value }))}
+                      className={SMALL_INPUT_CLS} />
+                    <input type="number" value={editData.price ?? ''}
+                      onChange={(e) => setEditData(p => ({ ...p, price: parseInt(e.target.value) }))}
+                      className={SMALL_INPUT_CLS} />
                   </div>
-                  <textarea rows={2} value={editData.description ?? ''} onChange={(e) => setEditData(p => ({ ...p, description: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35] resize-none" />
+                  <textarea rows={2} value={editData.description ?? ''}
+                    onChange={(e) => setEditData(p => ({ ...p, description: e.target.value }))}
+                    className={`w-full ${SMALL_INPUT_CLS} resize-none`} />
                   <div className="flex gap-2">
-                    <input placeholder="Rozet" value={editData.badge ?? ''} onChange={(e) => setEditData(p => ({ ...p, badge: e.target.value }))}
-                      className="flex-1 px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
+                    <input placeholder="Rozet" value={editData.badge ?? ''}
+                      onChange={(e) => setEditData(p => ({ ...p, badge: e.target.value }))}
+                      className={`flex-1 ${SMALL_INPUT_CLS}`} />
                     <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
-                      <input type="checkbox" checked={editData.is_featured ?? false} onChange={(e) => setEditData(p => ({ ...p, is_featured: e.target.checked }))} className="accent-[#FF6B35]" />
+                      <input type="checkbox" checked={editData.is_featured ?? false}
+                        onChange={(e) => setEditData(p => ({ ...p, is_featured: e.target.checked }))}
+                        className="accent-[#FF6B35]" />
                       Öne çıkan
                     </label>
                     <button onClick={saveEdit} className="p-2 bg-green-50 text-green-600 rounded-xl hover:bg-green-100"><Check size={16} /></button>
@@ -254,7 +216,7 @@ function PackagesPanel({ packages: init }: { packages: Package[] }) {
               )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <button onClick={() => toggleActive(pkg)} className="text-gray-400 hover:text-[#FF6B35] transition-colors">
+              <button onClick={() => toggleActive(pkg)}>
                 {pkg.is_active ? <ToggleRight size={22} className="text-green-500" /> : <ToggleLeft size={22} />}
               </button>
               <button onClick={() => startEdit(pkg)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500"><Edit2 size={15} /></button>
@@ -272,18 +234,16 @@ function LocationsPanel({ locations: init }: { locations: Location[] }) {
   const [locations, setLocations] = useState<Location[]>(init)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editData, setEditData] = useState<Partial<Location>>({})
-  const supabase = createClient()
 
   const startEdit = (loc: Location) => { setEditingId(loc.id); setEditData(loc) }
   const cancelEdit = () => { setEditingId(null); setEditData({}) }
 
   const saveEdit = async () => {
     if (!editingId) return
+    const supabase = createClient()
     const { error } = await supabase.from('locations').update({
-      name: editData.name,
-      venue: editData.venue,
-      weekday_hours: editData.weekday_hours,
-      weekend_hours: editData.weekend_hours,
+      name: editData.name, venue: editData.venue,
+      weekday_hours: editData.weekday_hours, weekend_hours: editData.weekend_hours,
       maps_url: editData.maps_url,
     }).eq('id', editingId)
     if (error) { toast.error('Güncelleme başarısız.'); return }
@@ -293,6 +253,7 @@ function LocationsPanel({ locations: init }: { locations: Location[] }) {
   }
 
   const toggleActive = async (loc: Location) => {
+    const supabase = createClient()
     await supabase.from('locations').update({ is_active: !loc.is_active }).eq('id', loc.id)
     setLocations((p) => p.map((x) => x.id === loc.id ? { ...x, is_active: !loc.is_active } : x))
   }
@@ -304,31 +265,27 @@ function LocationsPanel({ locations: init }: { locations: Location[] }) {
           {editingId === loc.id ? (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Lokasyon Adı</label>
-                  <input value={editData.name ?? ''} onChange={(e) => setEditData(p => ({ ...p, name: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Mekan Adı</label>
-                  <input value={editData.venue ?? ''} onChange={(e) => setEditData(p => ({ ...p, venue: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Hafta İçi Saat</label>
-                  <input value={editData.weekday_hours ?? ''} onChange={(e) => setEditData(p => ({ ...p, weekday_hours: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Hafta Sonu Saat</label>
-                  <input value={editData.weekend_hours ?? ''} onChange={(e) => setEditData(p => ({ ...p, weekend_hours: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
-                </div>
+                {([
+                  ['Lokasyon Adı', 'name'],
+                  ['Mekan Adı', 'venue'],
+                  ['Hafta İçi Saat', 'weekday_hours'],
+                  ['Hafta Sonu Saat', 'weekend_hours'],
+                ] as [string, keyof Location][]).map(([label, field]) => (
+                  <div key={field}>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
+                    <input
+                      value={(editData[field] as string) ?? ''}
+                      onChange={(e) => setEditData(p => ({ ...p, [field]: e.target.value }))}
+                      className={`w-full ${SMALL_INPUT_CLS}`}
+                    />
+                  </div>
+                ))}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Google Maps URL</label>
-                <input value={editData.maps_url ?? ''} onChange={(e) => setEditData(p => ({ ...p, maps_url: e.target.value }))}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
+                <input value={editData.maps_url ?? ''}
+                  onChange={(e) => setEditData(p => ({ ...p, maps_url: e.target.value }))}
+                  className={`w-full ${SMALL_INPUT_CLS}`} />
               </div>
               <div className="flex gap-2">
                 <button onClick={saveEdit} className="flex items-center gap-1.5 px-4 py-2 bg-green-50 text-green-600 rounded-xl text-sm font-semibold hover:bg-green-100">
@@ -371,13 +328,13 @@ function FeaturesPanel({ features: init }: { features: Feature[] }) {
   const [editData, setEditData] = useState<Partial<Feature>>({})
   const [showAdd, setShowAdd] = useState(false)
   const [newF, setNewF] = useState({ title: '', description: '', icon: '' })
-  const supabase = createClient()
 
   const startEdit = (f: Feature) => { setEditingId(f.id); setEditData(f) }
   const cancelEdit = () => { setEditingId(null); setEditData({}) }
 
   const saveEdit = async () => {
     if (!editingId) return
+    const supabase = createClient()
     const { error } = await supabase.from('features').update(editData).eq('id', editingId)
     if (error) { toast.error('Güncelleme başarısız.'); return }
     setFeatures((p) => p.map((x) => x.id === editingId ? { ...x, ...editData } : x))
@@ -386,24 +343,24 @@ function FeaturesPanel({ features: init }: { features: Feature[] }) {
   }
 
   const deleteF = async (id: string) => {
+    const supabase = createClient()
     await supabase.from('features').delete().eq('id', id)
     setFeatures((p) => p.filter((x) => x.id !== id))
     toast.success('Silindi.')
   }
 
   const toggleActive = async (f: Feature) => {
+    const supabase = createClient()
     await supabase.from('features').update({ is_active: !f.is_active }).eq('id', f.id)
     setFeatures((p) => p.map((x) => x.id === f.id ? { ...x, is_active: !f.is_active } : x))
   }
 
   const addFeature = async () => {
     if (!newF.title) { toast.error('Başlık zorunlu.'); return }
+    const supabase = createClient()
     const { data, error } = await supabase.from('features').insert({
-      title: newF.title,
-      description: newF.description || null,
-      icon: newF.icon || null,
-      sort_order: features.length + 1,
-      is_active: true,
+      title: newF.title, description: newF.description || null,
+      icon: newF.icon || null, sort_order: features.length + 1, is_active: true,
     }).select().single()
     if (error) { toast.error('Eklenemedi.'); return }
     setFeatures((p) => [...p, data])
@@ -416,18 +373,22 @@ function FeaturesPanel({ features: init }: { features: Feature[] }) {
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-100 flex justify-between">
         <span className="font-bold text-[#1B2A4A]">&quot;Ne Öğreneceksin?&quot; Maddeleri</span>
-        <button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1.5 px-3 py-2 bg-[#FF6B35] text-white rounded-xl text-sm font-bold hover:bg-orange-500">
+        <button onClick={() => setShowAdd(!showAdd)}
+          className="flex items-center gap-1.5 px-3 py-2 bg-[#FF6B35] text-white rounded-xl text-sm font-bold hover:bg-orange-500">
           <Plus size={14} /> Ekle
         </button>
       </div>
       {showAdd && (
         <div className="px-6 py-4 bg-orange-50 border-b border-orange-100 flex gap-3">
-          <input placeholder="Başlık *" value={newF.title} onChange={(e) => setNewF(p => ({ ...p, title: e.target.value }))}
-            className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
-          <input placeholder="Açıklama" value={newF.description} onChange={(e) => setNewF(p => ({ ...p, description: e.target.value }))}
-            className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
-          <input placeholder="Lucide icon adı" value={newF.icon} onChange={(e) => setNewF(p => ({ ...p, icon: e.target.value }))}
-            className="w-40 px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
+          <input placeholder="Başlık *" value={newF.title}
+            onChange={(e) => setNewF(p => ({ ...p, title: e.target.value }))}
+            className={`flex-1 ${SMALL_INPUT_CLS}`} />
+          <input placeholder="Açıklama" value={newF.description}
+            onChange={(e) => setNewF(p => ({ ...p, description: e.target.value }))}
+            className={`flex-1 ${SMALL_INPUT_CLS}`} />
+          <input placeholder="Lucide icon adı" value={newF.icon}
+            onChange={(e) => setNewF(p => ({ ...p, icon: e.target.value }))}
+            className={`w-40 ${SMALL_INPUT_CLS}`} />
           <button onClick={addFeature} className="px-4 py-2.5 bg-[#FF6B35] text-white rounded-xl text-sm font-bold">Ekle</button>
           <button onClick={() => setShowAdd(false)} className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm">İptal</button>
         </div>
@@ -439,19 +400,24 @@ function FeaturesPanel({ features: init }: { features: Feature[] }) {
             <div className="flex-1 min-w-0">
               {editingId === f.id ? (
                 <div className="flex gap-2">
-                  <input value={editData.title ?? ''} onChange={(e) => setEditData(p => ({ ...p, title: e.target.value }))}
-                    className="flex-1 px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
-                  <input value={editData.description ?? ''} onChange={(e) => setEditData(p => ({ ...p, description: e.target.value }))}
-                    className="flex-1 px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
-                  <input value={editData.icon ?? ''} onChange={(e) => setEditData(p => ({ ...p, icon: e.target.value }))}
-                    placeholder="icon" className="w-28 px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
+                  <input value={editData.title ?? ''}
+                    onChange={(e) => setEditData(p => ({ ...p, title: e.target.value }))}
+                    className={`flex-1 ${SMALL_INPUT_CLS}`} />
+                  <input value={editData.description ?? ''}
+                    onChange={(e) => setEditData(p => ({ ...p, description: e.target.value }))}
+                    className={`flex-1 ${SMALL_INPUT_CLS}`} />
+                  <input value={editData.icon ?? ''} placeholder="icon"
+                    onChange={(e) => setEditData(p => ({ ...p, icon: e.target.value }))}
+                    className={`w-28 ${SMALL_INPUT_CLS}`} />
                   <button onClick={saveEdit} className="p-2 bg-green-50 text-green-600 rounded-xl"><Check size={15} /></button>
                   <button onClick={cancelEdit} className="p-2 bg-gray-50 text-gray-500 rounded-xl"><X size={15} /></button>
                 </div>
               ) : (
                 <>
                   <div className="font-semibold text-sm text-[#1B2A4A]">{f.title}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">{f.description} {f.icon && <code className="bg-gray-100 px-1 rounded">{f.icon}</code>}</div>
+                  <div className="text-xs text-gray-400 mt-0.5">
+                    {f.description} {f.icon && <code className="bg-gray-100 px-1 rounded">{f.icon}</code>}
+                  </div>
                 </>
               )}
             </div>
@@ -474,13 +440,13 @@ function InfoCardsPanel({ infoCards: init }: { infoCards: InfoCard[] }) {
   const [cards, setCards] = useState<InfoCard[]>(init)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editData, setEditData] = useState<Partial<InfoCard>>({})
-  const supabase = createClient()
 
   const startEdit = (c: InfoCard) => { setEditingId(c.id); setEditData(c) }
   const cancelEdit = () => { setEditingId(null); setEditData({}) }
 
   const saveEdit = async () => {
     if (!editingId) return
+    const supabase = createClient()
     const { error } = await supabase.from('info_cards').update(editData).eq('id', editingId)
     if (error) { toast.error('Güncelleme başarısız.'); return }
     setCards((p) => p.map((x) => x.id === editingId ? { ...x, ...editData } : x))
@@ -495,27 +461,87 @@ function InfoCardsPanel({ infoCards: init }: { infoCards: InfoCard[] }) {
           <div className="flex-1 min-w-0">
             {editingId === card.id ? (
               <div className="flex gap-2">
-                <input value={editData.title ?? ''} onChange={(e) => setEditData(p => ({ ...p, title: e.target.value }))}
-                  className="w-36 px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
-                <input value={editData.content ?? ''} onChange={(e) => setEditData(p => ({ ...p, content: e.target.value }))}
-                  className="flex-1 px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
-                <input value={editData.icon ?? ''} onChange={(e) => setEditData(p => ({ ...p, icon: e.target.value }))}
-                  placeholder="icon" className="w-24 px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
+                <input value={editData.title ?? ''}
+                  onChange={(e) => setEditData(p => ({ ...p, title: e.target.value }))}
+                  className={`w-36 ${SMALL_INPUT_CLS}`} />
+                <input value={editData.content ?? ''}
+                  onChange={(e) => setEditData(p => ({ ...p, content: e.target.value }))}
+                  className={`flex-1 ${SMALL_INPUT_CLS}`} />
+                <input value={editData.icon ?? ''} placeholder="icon"
+                  onChange={(e) => setEditData(p => ({ ...p, icon: e.target.value }))}
+                  className={`w-24 ${SMALL_INPUT_CLS}`} />
                 <button onClick={saveEdit} className="p-2 bg-green-50 text-green-600 rounded-xl"><Check size={15} /></button>
                 <button onClick={cancelEdit} className="p-2 bg-gray-50 text-gray-500 rounded-xl"><X size={15} /></button>
               </div>
             ) : (
               <>
-                <div className="font-semibold text-sm text-[#1B2A4A]">{card.title} {card.icon && <code className="bg-gray-100 text-xs px-1 rounded ml-1">{card.icon}</code>}</div>
+                <div className="font-semibold text-sm text-[#1B2A4A]">
+                  {card.title} {card.icon && <code className="bg-gray-100 text-xs px-1 rounded ml-1">{card.icon}</code>}
+                </div>
                 <div className="text-xs text-gray-400 mt-0.5">{card.content}</div>
               </>
             )}
           </div>
           {editingId !== card.id && (
-            <button onClick={() => startEdit(card)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 flex-shrink-0"><Edit2 size={15} /></button>
+            <button onClick={() => startEdit(card)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 flex-shrink-0">
+              <Edit2 size={15} />
+            </button>
           )}
         </div>
       ))}
+    </div>
+  )
+}
+
+// ===================== MAIN COMPONENT =====================
+interface Props {
+  settings: SiteSettings
+  packages: Package[]
+  locations: Location[]
+  features: Feature[]
+  infoCards: InfoCard[]
+}
+
+type Tab = 'settings' | 'packages' | 'locations' | 'features' | 'info_cards'
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'settings', label: '⚙️ Site Ayarları' },
+  { key: 'packages', label: '📦 Paketler' },
+  { key: 'locations', label: '📍 Lokasyonlar' },
+  { key: 'features', label: '✨ Özellikler' },
+  { key: 'info_cards', label: '🃏 Bilgi Kartları' },
+]
+
+export default function ContentClient({
+  settings: initialSettings,
+  packages: initialPackages,
+  locations: initialLocations,
+  features: initialFeatures,
+  infoCards: initialInfoCards,
+}: Props) {
+  const [activeTab, setActiveTab] = useState<Tab>('settings')
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2 mb-6 bg-white rounded-2xl border border-gray-100 p-1.5 shadow-sm">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              activeTab === t.key ? 'bg-[#FF6B35] text-white shadow' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'settings' && <SiteSettingsPanel settings={initialSettings} />}
+      {activeTab === 'packages' && <PackagesPanel packages={initialPackages} />}
+      {activeTab === 'locations' && <LocationsPanel locations={initialLocations} />}
+      {activeTab === 'features' && <FeaturesPanel features={initialFeatures} />}
+      {activeTab === 'info_cards' && <InfoCardsPanel infoCards={initialInfoCards} />}
     </div>
   )
 }
