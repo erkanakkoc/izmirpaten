@@ -26,7 +26,9 @@ async function getCroppedBlob(image: HTMLImageElement, crop: PixelCrop): Promise
   const scaleY = image.naturalHeight / image.height
   canvas.width = crop.width * scaleX
   canvas.height = crop.height * scaleY
-  const ctx = canvas.getContext('2d')!
+  const ctx = canvas.getContext('2d', { alpha: true })!
+  // Şeffaf arka plan — clearRect olmadan canvas bazı tarayıcılarda beyaz doldurur
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
   ctx.drawImage(
     image,
     crop.x * scaleX, crop.y * scaleY,
@@ -35,7 +37,7 @@ async function getCroppedBlob(image: HTMLImageElement, crop: PixelCrop): Promise
     canvas.width, canvas.height
   )
   return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Canvas boş')), 'image/png', 1)
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Canvas boş')), 'image/png')
   })
 }
 
