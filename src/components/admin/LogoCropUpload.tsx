@@ -81,9 +81,10 @@ export default function LogoCropUpload({ currentUrl, onComplete }: Props) {
       onComplete(publicUrl)
       setSrcUrl(null)
       toast.success('Logo yüklendi!')
-    } catch (err) {
-      console.error(err)
-      toast.error('Yükleme başarısız. Supabase Storage bucket\'ı kontrol edin.')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message ?? 'Bilinmeyen hata'
+      console.error('Storage upload error:', err)
+      toast.error(`Yükleme başarısız: ${msg}`)
     } finally {
       setUploading(false)
     }
