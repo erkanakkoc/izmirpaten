@@ -7,25 +7,34 @@ import PackagesSection from '@/components/site/PackagesSection'
 import LocationsSection from '@/components/site/LocationsSection'
 import ApplicationForm from '@/components/site/ApplicationForm'
 import Footer from '@/components/site/Footer'
+import type { Package, Location, Feature, InfoCard, SiteSettings } from '@/types'
 
 export const revalidate = 60
 
 export default async function Home() {
-  const supabase = await createClient()
+  let settings: SiteSettings = {}
+  let packages: Package[] = []
+  let locations: Location[] = []
+  let features: Feature[] = []
+  let infoCards: InfoCard[] = []
 
-  const [settingsRes, packagesRes, locationsRes, featuresRes, infoCardsRes] = await Promise.all([
-    supabase.from('site_settings').select('*'),
-    supabase.from('packages').select('*').eq('is_active', true).order('sort_order'),
-    supabase.from('locations').select('*').eq('is_active', true),
-    supabase.from('features').select('*').eq('is_active', true).order('sort_order'),
-    supabase.from('info_cards').select('*').order('sort_order'),
-  ])
-
-  const settings = settingsArrayToObject(settingsRes.data ?? [])
-  const packages = packagesRes.data ?? []
-  const locations = locationsRes.data ?? []
-  const features = featuresRes.data ?? []
-  const infoCards = infoCardsRes.data ?? []
+  try {
+    const supabase = await createClient()
+    const [settingsRes, packagesRes, locationsRes, featuresRes, infoCardsRes] = await Promise.all([
+      supabase.from('site_settings').select('*'),
+      supabase.from('packages').select('*').eq('is_active', true).order('sort_order'),
+      supabase.from('locations').select('*').eq('is_active', true),
+      supabase.from('features').select('*').eq('is_active', true).order('sort_order'),
+      supabase.from('info_cards').select('*').order('sort_order'),
+    ])
+    settings = settingsArrayToObject(settingsRes.data ?? [])
+    packages = packagesRes.data ?? []
+    locations = locationsRes.data ?? []
+    features = featuresRes.data ?? []
+    infoCards = infoCardsRes.data ?? []
+  } catch {
+    // Supabase henüz yapılandırılmamışsa boş varsayılanlarla render et
+  }
 
   return (
     <main>
