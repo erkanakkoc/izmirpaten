@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Sidebar from '@/components/admin/Sidebar'
+import UnauthorizedPage from '@/components/admin/UnauthorizedPage'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -18,8 +19,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .single()
 
   if (!allowed) {
-    await supabase.auth.signOut()
-    redirect('/admin/login?error=unauthorized')
+    // Redirect yerine hata sayfası göster — redirect döngüsünü önler
+    return <UnauthorizedPage email={user.email ?? ''} />
   }
 
   return (
