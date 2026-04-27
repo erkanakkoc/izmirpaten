@@ -28,17 +28,18 @@ export async function middleware(request: NextRequest) {
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
   const isLoginRoute = request.nextUrl.pathname === '/admin/login'
 
+  // Giriş yapılmamışsa login'e yönlendir
   if (isAdminRoute && !isLoginRoute && !user) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/admin/login'
     return NextResponse.redirect(loginUrl)
   }
 
-  if (isLoginRoute && user) {
-    const dashboardUrl = request.nextUrl.clone()
-    dashboardUrl.pathname = '/admin'
-    return NextResponse.redirect(dashboardUrl)
-  }
+  // Login sayfasında oturum varsa dashboard'a yönlendir
+  // NOT: allowed_emails kontrolü layout'ta yapılıyor; yetkisiz kullanıcı
+  // signOut edilip login'e yönlendiriliyor. Bu redirect'i kaldırmazsak
+  // signOut+redirect arasındaki gecikme döngüye neden olur.
+  // Bu yüzden login sayfasına her zaman erişime izin veriyoruz.
 
   return supabaseResponse
 }
