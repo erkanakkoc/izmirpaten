@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Zap, Eye, EyeOff } from 'lucide-react'
@@ -14,14 +14,6 @@ export default function AdminLogin() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isUnauthorized = searchParams.get('error') === 'unauthorized'
-
-  useEffect(() => {
-    if (isUnauthorized) return
-    const supabase = createClient()
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace('/admin')
-    })
-  }, [isUnauthorized, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -25,21 +25,13 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
   const isLoginRoute = request.nextUrl.pathname === '/admin/login'
 
-  // Giriş yapılmamışsa login'e yönlendir
-  if (isAdminRoute && !isLoginRoute && !user) {
-    const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/admin/login'
+  // Giriş yapılmamış ve login sayfası değilse → login'e yönlendir
+  if (!isLoginRoute && !user) {
+    const loginUrl = new URL('/admin/login', request.url)
     return NextResponse.redirect(loginUrl)
   }
-
-  // Login sayfasında oturum varsa dashboard'a yönlendir
-  // NOT: allowed_emails kontrolü layout'ta yapılıyor; yetkisiz kullanıcı
-  // signOut edilip login'e yönlendiriliyor. Bu redirect'i kaldırmazsak
-  // signOut+redirect arasındaki gecikme döngüye neden olur.
-  // Bu yüzden login sayfasına her zaman erişime izin veriyoruz.
 
   return supabaseResponse
 }
