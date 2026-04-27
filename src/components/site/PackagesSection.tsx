@@ -1,3 +1,5 @@
+'use client'
+
 import { Check, Star } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 import type { Package } from '@/types'
