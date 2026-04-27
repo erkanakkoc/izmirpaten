@@ -20,29 +20,44 @@ function centerAspectCrop(width: number, height: number) {
   )
 }
 
-async function getCroppedBlob(image: HTMLImageElement, crop: PixelCrop): Promise<Blob> {
+// Orijinal File nesnesinden createImageBitmap ile kırpma yapar.
+// img elementinin rendered piksellerini okumak alfa kanalını kaybettirebilir;
+// File'ı direkt okumak şeffaflığı garantiler.
+async function getCroppedBlob(
+  file: File,
+  crop: PixelCrop,
+  displayedImg: HTMLImageElement
+): Promise<Blob> {
+  const scaleX = displayedImg.naturalWidth / displayedImg.width
+  const scaleY = displayedImg.naturalHeight / displayedImg.height
+
+  const sx = Math.round(crop.x * scaleX)
+  const sy = Math.round(crop.y * scaleY)
+  const sw = Math.round(crop.width * scaleX)
+  const sh = Math.round(crop.height * scaleY)
+
+  // createImageBitmap orijinal File'ı okur — alfa kanalı korunur
+  const bitmap = await createImageBitmap(file, sx, sy, sw, sh)
+
   const canvas = document.createElement('canvas')
-  const scaleX = image.naturalWidth / image.width
-  const scaleY = image.naturalHeight / image.height
-  canvas.width = crop.width * scaleX
-  canvas.height = crop.height * scaleY
+  canvas.width = sw
+  canvas.height = sh
   const ctx = canvas.getContext('2d', { alpha: true })!
-  // Şeffaf arka plan — clearRect olmadan canvas bazı tarayıcılarda beyaz doldurur
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-  ctx.drawImage(
-    image,
-    crop.x * scaleX, crop.y * scaleY,
-    crop.width * scaleX, crop.height * scaleY,
-    0, 0,
-    canvas.width, canvas.height
-  )
+  ctx.clearRect(0, 0, sw, sh)
+  ctx.drawImage(bitmap, 0, 0)
+  bitmap.close()
+
   return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Canvas boş')), 'image/png')
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error('Canvas boş'))),
+      'image/png'
+    )
   })
 }
 
 export default function LogoCropUpload({ currentUrl, onComplete }: Props) {
   const [srcUrl, setSrcUrl] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [crop, setCrop] = useState<Crop>()
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>()
   const [uploading, setUploading] = useState(false)
@@ -52,11 +67,14 @@ export default function LogoCropUpload({ currentUrl, onComplete }: Props) {
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) { toast.error('Sadece resim dosyası seçebilirsin.'); return }
+    if (!file.type.startsWith('image/')) {
+      toast.error('Sadece resim dosyası seçebilirsin.')
+      return
+    }
+    setSelectedFile(file)
     const reader = new FileReader()
     reader.onload = () => setSrcUrl(reader.result as string)
     reader.readAsDataURL(file)
-    // input'u sıfırla — aynı dosyayı tekrar seçmeye izin ver
     e.target.value = ''
   }
 
@@ -66,13 +84,13 @@ export default function LogoCropUpload({ currentUrl, onComplete }: Props) {
   }, [])
 
   const handleCropAndUpload = async () => {
-    if (!imgRef.current || !completedCrop) {
+    if (!imgRef.current || !completedCrop || !selectedFile) {
       toast.error('Lütfen kırpma alanını seçin.')
       return
     }
     setUploading(true)
     try {
-      const blob = await getCroppedBlob(imgRef.current, completedCrop)
+      const blob = await getCroppedBlob(selectedFile, completedCrop, imgRef.current)
       const supabase = createClient()
       const fileName = `logo_${Date.now()}.png`
       const { error } = await supabase.storage
@@ -82,9 +100,13 @@ export default function LogoCropUpload({ currentUrl, onComplete }: Props) {
       const { data: { publicUrl } } = supabase.storage.from('assets').getPublicUrl(fileName)
       onComplete(publicUrl)
       setSrcUrl(null)
+      setSelectedFile(null)
       toast.success('Logo yüklendi!')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message ?? 'Bilinmeyen hata'
+      const msg =
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message ?? 'Bilinmeyen hata'
       console.error('Storage upload error:', err)
       toast.error(`Yükleme başarısız: ${msg}`)
     } finally {
@@ -94,6 +116,7 @@ export default function LogoCropUpload({ currentUrl, onComplete }: Props) {
 
   const handleCancel = () => {
     setSrcUrl(null)
+    setSelectedFile(null)
     setCrop(undefined)
     setCompletedCrop(undefined)
   }
@@ -103,7 +126,7 @@ export default function LogoCropUpload({ currentUrl, onComplete }: Props) {
       {/* Mevcut logo + yükleme butonu */}
       <div className="flex items-center gap-3">
         {currentUrl ? (
-          <div className="flex-shrink-0 h-12 w-auto max-w-32 rounded-xl border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center px-2">
+          <div className="flex-shrink-0 h-12 w-auto max-w-32 rounded-xl border border-gray-200 overflow-hidden bg-[#1B2A4A] flex items-center justify-center px-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={currentUrl} alt="Mevcut logo" className="max-h-10 w-auto object-contain" />
           </div>
@@ -123,7 +146,7 @@ export default function LogoCropUpload({ currentUrl, onComplete }: Props) {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/png,image/webp,image/svg+xml"
           onChange={onFileChange}
           className="hidden"
         />
@@ -137,15 +160,15 @@ export default function LogoCropUpload({ currentUrl, onComplete }: Props) {
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <div>
                 <h3 className="font-bold text-[#1B2A4A]">Logo Kırp</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Logoyu görmek istediğin alanı seç</p>
+                <p className="text-xs text-gray-400 mt-0.5">Görmek istediğin alanı seç</p>
               </div>
               <button onClick={handleCancel} className="p-2 rounded-xl hover:bg-gray-100 text-gray-400">
                 <X size={20} />
               </button>
             </div>
 
-            {/* Crop alanı */}
-            <div className="p-6 flex items-center justify-center bg-gray-50 max-h-[60vh] overflow-auto">
+            {/* Crop alanı — koyu arka plan şeffaflığı görmeyi kolaylaştırır */}
+            <div className="p-6 flex items-center justify-center bg-[#1B2A4A] max-h-[60vh] overflow-auto">
               <ReactCrop
                 crop={crop}
                 onChange={(c) => setCrop(c)}
@@ -166,11 +189,9 @@ export default function LogoCropUpload({ currentUrl, onComplete }: Props) {
 
             {/* Önizleme + butonlar */}
             <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-4">
-              <div>
+              <div className="text-xs text-gray-400">
                 {completedCrop && (
-                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                    <span>Seçim: {Math.round(completedCrop.width)} × {Math.round(completedCrop.height)} px</span>
-                  </div>
+                  <span>Seçim: {Math.round(completedCrop.width)} × {Math.round(completedCrop.height)} px</span>
                 )}
               </div>
               <div className="flex gap-3">
