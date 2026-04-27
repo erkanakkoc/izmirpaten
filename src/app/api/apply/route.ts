@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
       try {
         await resend.emails.send({
-          from: 'İzmir Paten <noreply@izmirpaten.com>',
+          from: 'Paten İzmir <noreply@patenizmir.com>',
           to: adminEmail,
           subject: `🛼 Yeni Başvuru: ${full_name} – ${package_name}`,
           html: templateHtml,
@@ -143,7 +143,7 @@ function buildEmailHtml(template: string | null | undefined, vars: Record<string
     </table>
   </div>
   <div style="padding:16px 32px;background:#f9f9f9;text-align:center;color:#aaa;font-size:12px">
-    izmirpaten.com üzerinden gönderildi
+    patenizmir.com üzerinden gönderildi
   </div>
 </div>`
 

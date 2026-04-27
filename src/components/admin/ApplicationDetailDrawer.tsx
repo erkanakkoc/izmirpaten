@@ -56,7 +56,7 @@ export default function ApplicationDetailDrawer({ app, onClose }: Props) {
           </a>
           {app.email && (
             <a
-              href={`mailto:${app.email}?subject=İzmir Paten – Başvurunuz Hakkında&body=Merhaba ${app.full_name},`}
+              href={`mailto:${app.email}?subject=Paten İzmir – Başvurunuz Hakkında&body=Merhaba ${app.full_name},`}
               className="flex items-center gap-1.5 px-3 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded-xl text-xs font-semibold hover:bg-purple-100 transition-all"
             >
               <Mail size={13} /> E-posta

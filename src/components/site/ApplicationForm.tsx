@@ -330,7 +330,7 @@ export default function ApplicationForm({ packages, locations }: ApplicationForm
             />
             <span className="text-sm text-gray-600 leading-relaxed">
               Gelişim sürecimin video/fotoğrafla kayıt altına alınmasına ve{' '}
-              <span className="font-semibold text-[#FF6B35]">@izmirpaten</span> sosyal medya
+              <span className="font-semibold text-[#FF6B35]">@patenizmir</span> sosyal medya
               hesaplarında paylaşılmasına izin veriyorum.
             </span>
           </label>

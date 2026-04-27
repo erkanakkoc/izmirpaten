@@ -7,7 +7,7 @@ interface FooterProps {
 }
 
 export default function Footer({ settings }: FooterProps) {
-  const siteTitle = settings.site_title || 'İzmir Paten'
+  const siteTitle = settings.site_title || 'Paten İzmir'
   const slogan = settings.footer_slogan || 'İzmir\'in Rüzgarında Özgürce Süz'
   const instagramUrl = settings.instagram_url
   const whatsappNumber = settings.whatsapp_number

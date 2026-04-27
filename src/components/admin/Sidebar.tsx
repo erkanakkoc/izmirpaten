@@ -37,7 +37,7 @@ export default function Sidebar() {
             <Zap size={18} />
           </span>
           <div>
-            <div className="font-extrabold text-sm">İzmir Paten</div>
+            <div className="font-extrabold text-sm">Paten İzmir</div>
             <div className="text-xs text-blue-300">Admin Paneli</div>
           </div>
         </div>

@@ -189,7 +189,7 @@ export default function ApplicationsClient({ initialApplications, packages, loca
                       </a>
                       {app.email && (
                         <a
-                          href={`mailto:${app.email}?subject=İzmir Paten – Başvurunuz Hakkında`}
+                          href={`mailto:${app.email}?subject=Paten İzmir – Başvurunuz Hakkında`}
                           title="Mail gönder"
                           className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-500 transition-colors"
                         >

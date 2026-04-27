@@ -10,7 +10,7 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "İzmir Paten – Profesyonel Paten Dersleri",
+  title: "Paten İzmir – Profesyonel Paten Dersleri",
   description: "Bostanlı ve Göztepe'de profesyonel birebir ve grup paten dersleri. Başlangıçtan ileri seviyeye, her yaşa uygun eğitim programları.",
 };
 

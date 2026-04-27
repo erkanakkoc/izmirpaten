@@ -36,7 +36,7 @@ export default function AdminLogin() {
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#FF6B35] mb-4">
             <Zap size={28} className="text-white" />
           </div>
-          <h1 className="text-2xl font-extrabold text-white">İzmir Paten</h1>
+          <h1 className="text-2xl font-extrabold text-white">Paten İzmir</h1>
           <p className="text-blue-200 text-sm mt-1">Admin Paneli</p>
         </div>
 

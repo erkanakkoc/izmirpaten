@@ -65,7 +65,7 @@ export default function MailClient({ mails, template: initialTemplate }: Props) 
                 <div className="flex items-center gap-3 flex-shrink-0">
                   {m.applicant_email && (
                     <a
-                      href={`mailto:${m.applicant_email}?subject=İzmir Paten – Başvurunuz Hakkında&body=Merhaba ${m.applicant_name},`}
+                      href={`mailto:${m.applicant_email}?subject=Paten İzmir – Başvurunuz Hakkında&body=Merhaba ${m.applicant_name},`}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-600 rounded-xl text-xs font-semibold hover:bg-purple-100 transition-all"
                     >
                       <RefreshCw size={12} /> Yanıtla

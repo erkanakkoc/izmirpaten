@@ -15,7 +15,7 @@ const navLinks = [
   { href: '#basvur', label: 'Başvur' },
 ]
 
-export default function Navbar({ siteTitle = 'İzmir Paten' }: NavbarProps) {
+export default function Navbar({ siteTitle = 'Paten İzmir' }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
