@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Save, Plus, Trash2, GripVertical, ToggleLeft, ToggleRight, Edit2, Check, X } from 'lucide-react'
 import type { Package, Location, Feature, InfoCard, SiteSettings } from '@/types'
 import { formatPrice } from '@/lib/utils'
+import LogoCropUpload from './LogoCropUpload'
 
 // ─── Tüm panel bileşenleri ContentClient DIŞINDA tanımlanmış ───
 // İçeride tanımlansaydı her state değişiminde yeniden oluşturulur,
@@ -87,17 +88,17 @@ function SiteSettingsPanel({ settings: init }: { settings: SiteSettings }) {
             </div>
           </div>
 
-          {/* Logo URL + height */}
+          {/* Logo yükleme + kırpma */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Logo URL</label>
-              <input
-                type="text"
-                value={s.logo_url ?? ''}
-                onChange={(e) => set('logo_url', e.target.value)}
-                placeholder="https://... (PNG, SVG, WebP)"
-                className={INPUT_CLS}
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Logo</label>
+              <LogoCropUpload
+                currentUrl={s.logo_url}
+                onComplete={(url) => set('logo_url', url)}
               />
+              <p className="text-xs text-gray-400 mt-1.5">
+                Yükleme sonrası URL otomatik dolar — yukarıdaki &quot;Kaydet&quot; butonu ile kaydet.
+              </p>
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Logo Yüksekliği (px)</label>
