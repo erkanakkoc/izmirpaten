@@ -27,7 +27,7 @@ export default function AboutSection({ settings, features, infoCards }: AboutSec
             Hakkında
           </span>
           <h2 className="text-4xl font-extrabold text-[#1B2A4A] mb-6">Merhaba, Ben Seninle Patene Çıkacağım!</h2>
-          <p className="text-gray-600 text-lg leading-relaxed">{aboutText}</p>
+          <p className="text-gray-600 text-lg leading-relaxed whitespace-pre-wrap">{aboutText}</p>
         </div>
 
         {/* Features */}

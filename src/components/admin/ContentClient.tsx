@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Save, Plus, Trash2, GripVertical, ToggleLeft, ToggleRight, Edit2, Check, X } from 'lucide-react'
-import type { Package, Location, Feature, InfoCard, SiteSettings } from '@/types'
+import type { Package, Location, Feature, InfoCard, SiteSettings, GalleryImage } from '@/types'
 import { formatPrice } from '@/lib/utils'
 import LogoCropUpload from './LogoCropUpload'
+import GalleryManager from './GalleryManager'
 
 // ─── Tüm panel bileşenleri ContentClient DIŞINDA tanımlanmış ───
 // İçeride tanımlansaydı her state değişiminde yeniden oluşturulur,
@@ -571,6 +572,132 @@ function InfoCardsPanel({ infoCards: init }: { infoCards: InfoCard[] }) {
   )
 }
 
+// ===================== FOOTER PANEL =====================
+function FooterPanel({ settings: init }: { settings: SiteSettings }) {
+  const [s, setS] = useState({ copyright: init.footer_copyright ?? '', links: init.footer_links ?? '[]' })
+  const [saving, setSaving] = useState(false)
+  const [newLink, setNewLink] = useState({ label: '', url: '' })
+
+  let links: { label: string; url: string }[] = []
+  try { links = JSON.parse(s.links) } catch {}
+
+  const save = async () => {
+    setSaving(true)
+    const supabase = createClient()
+    await supabase.from('site_settings').upsert([
+      { key: 'footer_copyright', value: s.copyright, updated_at: new Date().toISOString() },
+      { key: 'footer_links', value: s.links, updated_at: new Date().toISOString() },
+    ])
+    toast.success('Footer kaydedildi.')
+    setSaving(false)
+  }
+
+  const addLink = () => {
+    if (!newLink.label || !newLink.url) return
+    const updated = JSON.stringify([...links, newLink])
+    setS(p => ({ ...p, links: updated }))
+    setNewLink({ label: '', url: '' })
+  }
+
+  const removeLink = (i: number) => {
+    const updated = JSON.stringify(links.filter((_, idx) => idx !== i))
+    setS(p => ({ ...p, links: updated }))
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Copyright Metni</label>
+        <input type="text" value={s.copyright} onChange={(e) => setS(p => ({ ...p, copyright: e.target.value }))}
+          placeholder={`© ${new Date().getFullYear()} Paten İzmir. Tüm hakları saklıdır.`}
+          className={INPUT_CLS} />
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-3">Footer Linkleri</label>
+        {links.map((link, i) => (
+          <div key={i} className="flex items-center gap-2 mb-2">
+            <span className="text-sm text-[#1B2A4A] font-semibold flex-shrink-0">{link.label}</span>
+            <span className="text-xs text-gray-400 flex-1 truncate">{link.url}</span>
+            <button onClick={() => removeLink(i)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg"><X size={14} /></button>
+          </div>
+        ))}
+        <div className="flex gap-2 mt-3">
+          <input value={newLink.label} onChange={(e) => setNewLink(p => ({ ...p, label: e.target.value }))}
+            placeholder="Link metni" className={`w-36 ${SMALL_INPUT_CLS}`} />
+          <input value={newLink.url} onChange={(e) => setNewLink(p => ({ ...p, url: e.target.value }))}
+            placeholder="https://..." className={`flex-1 ${SMALL_INPUT_CLS}`} />
+          <button onClick={addLink} className="px-3 py-2.5 bg-[#FF6B35] text-white rounded-xl text-sm font-bold">Ekle</button>
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <button onClick={save} disabled={saving}
+          className="flex items-center gap-2 px-6 py-3 bg-[#FF6B35] text-white rounded-xl font-bold hover:bg-orange-500 disabled:opacity-60">
+          <Save size={16} />{saving ? 'Kaydediliyor...' : 'Kaydet'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ===================== INSTAGRAM + TOGGLES PANEL =====================
+function SiteTogglesPanel({ settings: init }: { settings: SiteSettings }) {
+  const [s, setS] = useState({
+    instagram_show_section: init.instagram_show_section ?? 'false',
+    show_reviews: init.show_reviews ?? 'true',
+    show_gallery: init.show_gallery ?? 'true',
+    group_prerequisite_note: init.group_prerequisite_note ?? '',
+  })
+  const [saving, setSaving] = useState(false)
+
+  const save = async () => {
+    setSaving(true)
+    const supabase = createClient()
+    await supabase.from('site_settings').upsert(
+      Object.entries(s).map(([key, value]) => ({ key, value, updated_at: new Date().toISOString() }))
+    )
+    toast.success('Ayarlar kaydedildi.')
+    setSaving(false)
+  }
+
+  const Toggle = ({ label, k, desc }: { label: string; k: keyof typeof s; desc?: string }) => (
+    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+      <div>
+        <div className="font-semibold text-sm text-[#1B2A4A]">{label}</div>
+        {desc && <div className="text-xs text-gray-400 mt-0.5">{desc}</div>}
+      </div>
+      <button onClick={() => setS(p => ({ ...p, [k]: p[k] === 'true' ? 'false' : 'true' }))}
+        className="transition-colors">
+        {s[k] === 'true'
+          ? <ToggleRight size={28} className="text-green-500" />
+          : <ToggleLeft size={28} className="text-gray-300" />}
+      </button>
+    </div>
+  )
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+      <h3 className="font-bold text-[#1B2A4A] text-sm">Bölüm Görünürlüğü</h3>
+      <Toggle label="Instagram Bölümü" k="instagram_show_section" desc="Sitede Instagram takip bölümü göster" />
+      <Toggle label="Yorumlar Bölümü" k="show_reviews" desc="Onaylanan yorumlar sitede görünsün" />
+      <Toggle label="Galeri Bölümü" k="show_gallery" desc="Fotoğraf galerisi sitede görünsün" />
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Grup Dersi Ön Koşul Notu</label>
+        <textarea rows={3} value={s.group_prerequisite_note}
+          onChange={(e) => setS(p => ({ ...p, group_prerequisite_note: e.target.value }))}
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] text-sm resize-none"
+          placeholder="Grup derslerine katılabilmek için..." />
+        <p className="text-xs text-gray-400 mt-1">Boş bırakılırsa paketler sayfasında bu not görünmez.</p>
+      </div>
+      <div className="flex justify-end">
+        <button onClick={save} disabled={saving}
+          className="flex items-center gap-2 px-6 py-3 bg-[#FF6B35] text-white rounded-xl font-bold hover:bg-orange-500 disabled:opacity-60">
+          <Save size={16} />{saving ? 'Kaydediliyor...' : 'Kaydet'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ===================== MAIN COMPONENT =====================
 interface Props {
   settings: SiteSettings
@@ -578,9 +705,10 @@ interface Props {
   locations: Location[]
   features: Feature[]
   infoCards: InfoCard[]
+  galleryImages: GalleryImage[]
 }
 
-type Tab = 'settings' | 'packages' | 'locations' | 'features' | 'info_cards'
+type Tab = 'settings' | 'packages' | 'locations' | 'features' | 'info_cards' | 'footer' | 'toggles' | 'gallery'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'settings', label: '⚙️ Site Ayarları' },
@@ -588,6 +716,9 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'locations', label: '📍 Lokasyonlar' },
   { key: 'features', label: '✨ Özellikler' },
   { key: 'info_cards', label: '🃏 Bilgi Kartları' },
+  { key: 'footer', label: '📄 Footer' },
+  { key: 'toggles', label: '🔘 Bölümler' },
+  { key: 'gallery', label: '🖼 Galeri' },
 ]
 
 export default function ContentClient({
@@ -596,6 +727,7 @@ export default function ContentClient({
   locations: initialLocations,
   features: initialFeatures,
   infoCards: initialInfoCards,
+  galleryImages,
 }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('settings')
 
@@ -603,13 +735,10 @@ export default function ContentClient({
     <div>
       <div className="flex flex-wrap gap-2 mb-6 bg-white rounded-2xl border border-gray-100 p-1.5 shadow-sm">
         {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+          <button key={t.key} onClick={() => setActiveTab(t.key)}
+            className={`px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
               activeTab === t.key ? 'bg-[#FF6B35] text-white shadow' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-            }`}
-          >
+            }`}>
             {t.label}
           </button>
         ))}
@@ -620,6 +749,9 @@ export default function ContentClient({
       {activeTab === 'locations' && <LocationsPanel locations={initialLocations} />}
       {activeTab === 'features' && <FeaturesPanel features={initialFeatures} />}
       {activeTab === 'info_cards' && <InfoCardsPanel infoCards={initialInfoCards} />}
+      {activeTab === 'footer' && <FooterPanel settings={initialSettings} />}
+      {activeTab === 'toggles' && <SiteTogglesPanel settings={initialSettings} />}
+      {activeTab === 'gallery' && <GalleryManager images={galleryImages} />}
     </div>
   )
 }

@@ -7,18 +7,19 @@ export const revalidate = 0
 export default async function ContentPage() {
   const supabase = await createClient()
 
-  const [settingsRes, packagesRes, locationsRes, featuresRes, infoCardsRes] = await Promise.all([
+  const [settingsRes, packagesRes, locationsRes, featuresRes, infoCardsRes, galleryRes] = await Promise.all([
     supabase.from('site_settings').select('*'),
     supabase.from('packages').select('*').order('sort_order'),
     supabase.from('locations').select('*'),
     supabase.from('features').select('*').order('sort_order'),
     supabase.from('info_cards').select('*').order('sort_order'),
+    supabase.from('gallery_images').select('*').order('sort_order'),
   ])
 
   const settings = settingsArrayToObject(settingsRes.data ?? [])
 
   return (
-    <div className="p-8">
+    <div className="p-6 md:p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-extrabold text-[#1B2A4A]">İçerik Yönetimi</h1>
         <p className="text-gray-500 text-sm mt-1">Site içeriklerini, paketleri ve lokasyonları düzenle.</p>
@@ -29,6 +30,7 @@ export default async function ContentPage() {
         locations={locationsRes.data ?? []}
         features={featuresRes.data ?? []}
         infoCards={infoCardsRes.data ?? []}
+        galleryImages={galleryRes.data ?? []}
       />
     </div>
   )

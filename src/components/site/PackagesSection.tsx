@@ -7,9 +7,10 @@ import { cn } from '@/lib/utils'
 
 interface PackagesSectionProps {
   packages: Package[]
+  prerequisiteNote?: string
 }
 
-export default function PackagesSection({ packages }: PackagesSectionProps) {
+export default function PackagesSection({ packages, prerequisiteNote }: PackagesSectionProps) {
   const handleApply = (pkgId?: string, pkgName?: string) => {
     if (pkgId && pkgName) {
       window.dispatchEvent(new CustomEvent('selectPackage', { detail: { id: pkgId, name: pkgName } }))
@@ -39,6 +40,14 @@ export default function PackagesSection({ packages }: PackagesSectionProps) {
             Sana en uygun paketi seç, hemen başvur. Tüm paketler 40 dakikalık derslerden oluşur.
           </p>
         </div>
+
+        {/* Grup dersi ön koşul notu */}
+        {prerequisiteNote && (
+          <div className="mb-8 p-5 bg-amber-50 border border-amber-200 rounded-2xl flex gap-3">
+            <span className="text-2xl flex-shrink-0">⚠️</span>
+            <p className="text-amber-800 text-sm leading-relaxed">{prerequisiteNote}</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {packages.map((pkg, i) => (

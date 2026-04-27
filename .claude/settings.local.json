@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'fix: cap logo height at 48px in navbar to prevent overflow *)",
+      "Bash(git push *)"
     ]
   }
 }

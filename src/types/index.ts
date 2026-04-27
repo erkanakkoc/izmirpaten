@@ -86,7 +86,32 @@ export interface SiteSettings {
   hero_cta_text?: string
   about_text?: string
   footer_slogan?: string
+  footer_copyright?: string
+  footer_links?: string
   instagram_url?: string
+  instagram_show_section?: string
   whatsapp_number?: string
   admin_email_template?: string
+  show_reviews?: string
+  show_gallery?: string
+  group_prerequisite_note?: string
+}
+
+export interface Review {
+  id: string
+  created_at: string
+  name: string
+  rating: number
+  comment: string
+  package_name: string | null
+  is_approved: boolean
+}
+
+export interface GalleryImage {
+  id: string
+  url: string
+  alt: string | null
+  sort_order: number
+  is_active: boolean
+  created_at: string
 }

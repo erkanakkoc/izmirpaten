@@ -29,7 +29,8 @@ export default async function ProtectedLayout({ children }: { children: React.Re
         siteTitle={settings.site_title ?? undefined}
         logoHeight={settings.logo_height ? parseInt(settings.logo_height) : undefined}
       />
-      <main className="flex-1 overflow-y-auto">
+      {/* pt-14 = mobil top bar yüksekliği */}
+      <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
         {children}
       </main>
     </div>

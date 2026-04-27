@@ -30,8 +30,8 @@ export default function HeroSection({ settings }: HeroSectionProps) {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-white/5 blur-3xl" />
       </div>
 
-      {/* Floating emojis */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+      {/* Floating emojis — sadece md+ ekranlarda göster, mobilde metin üstüne binmesin */}
+      <div className="hidden md:block absolute inset-0 overflow-hidden pointer-events-none select-none">
         {['🛼', '⭐', '🎯', '🏆', '🛼', '✨'].map((emoji, i) => (
           <span
             key={i}
