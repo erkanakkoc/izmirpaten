@@ -38,7 +38,12 @@ export default async function Home() {
 
   return (
     <main>
-      <Navbar siteTitle={settings.site_title} logoUrl={settings.logo_url} />
+      <Navbar
+        siteTitle={settings.site_title}
+        logoUrl={settings.logo_url}
+        logoDisplayMode={settings.logo_display_mode}
+        logoHeight={settings.logo_height ? parseInt(settings.logo_height) : undefined}
+      />
       <HeroSection settings={settings} />
       <AboutSection settings={settings} features={features} infoCards={infoCards} />
       <PackagesSection packages={packages} />

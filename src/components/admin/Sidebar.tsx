@@ -14,7 +14,7 @@ const navItems = [
   { href: '/admin/content', label: 'İçerik', icon: Settings },
 ]
 
-export default function Sidebar({ logoUrl, siteTitle }: { logoUrl?: string; siteTitle?: string }) {
+export default function Sidebar({ logoUrl, siteTitle, logoHeight }: { logoUrl?: string; siteTitle?: string; logoHeight?: number }) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -35,7 +35,7 @@ export default function Sidebar({ logoUrl, siteTitle }: { logoUrl?: string; site
         <div className="flex items-center gap-3">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt={siteTitle ?? 'Logo'} className="h-9 w-auto object-contain" />
+            <img src={logoUrl} alt={siteTitle ?? 'Logo'} style={{ height: `${logoHeight ?? 36}px` }} className="w-auto object-contain" />
           ) : (
             <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#FF6B35] flex-shrink-0">
               <Zap size={18} />

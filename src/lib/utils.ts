@@ -8,7 +8,8 @@ export function cn(...inputs: ClassValue[]) {
 
 export function settingsArrayToObject(settings: SiteSetting[]): SiteSettings {
   return settings.reduce((acc, s) => {
-    acc[s.key as keyof SiteSettings] = s.value ?? undefined
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(acc as any)[s.key] = s.value ?? undefined
     return acc
   }, {} as SiteSettings)
 }

@@ -13,7 +13,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   const [{ data: allowed }, { data: settingsData }] = await Promise.all([
     supabase.from('allowed_emails').select('email').eq('email', user.email).single(),
-    supabase.from('site_settings').select('key, value').in('key', ['site_title', 'logo_url']),
+    supabase.from('site_settings').select('key, value').in('key', ['site_title', 'logo_url', 'logo_height']),
   ])
 
   if (!allowed) {
@@ -24,7 +24,11 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <Sidebar logoUrl={settings.logo_url ?? undefined} siteTitle={settings.site_title ?? undefined} />
+      <Sidebar
+        logoUrl={settings.logo_url ?? undefined}
+        siteTitle={settings.site_title ?? undefined}
+        logoHeight={settings.logo_height ? parseInt(settings.logo_height) : undefined}
+      />
       <main className="flex-1 overflow-y-auto">
         {children}
       </main>

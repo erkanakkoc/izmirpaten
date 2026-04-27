@@ -4,9 +4,13 @@ import { useState, useEffect } from 'react'
 import { Menu, X, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+type LogoDisplayMode = 'logo_only' | 'logo_and_title' | 'title_only'
+
 interface NavbarProps {
   siteTitle?: string
   logoUrl?: string
+  logoDisplayMode?: LogoDisplayMode
+  logoHeight?: number
 }
 
 const navLinks = [
@@ -16,7 +20,7 @@ const navLinks = [
   { href: '#basvur', label: 'Başvur' },
 ]
 
-export default function Navbar({ siteTitle = 'Paten İzmir', logoUrl }: NavbarProps) {
+export default function Navbar({ siteTitle = 'Paten İzmir', logoUrl, logoDisplayMode = 'logo_and_title', logoHeight = 32 }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
@@ -48,17 +52,29 @@ export default function Navbar({ siteTitle = 'Paten İzmir', logoUrl }: NavbarPr
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="flex items-center gap-2 font-extrabold text-xl"
           >
-            {logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt={siteTitle} className="h-8 w-auto object-contain" />
+            {logoDisplayMode === 'title_only' ? (
+              // Sadece metin — fallback ikon + başlık
+              <>
+                <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#FF6B35] text-white">
+                  <Zap size={18} />
+                </span>
+                <span className={cn('transition-colors', scrolled ? 'text-[#1B2A4A]' : 'text-white')}>{siteTitle}</span>
+              </>
+            ) : logoDisplayMode === 'logo_only' ? (
+              // Sadece logo
+              logoUrl
+                ? <img src={logoUrl} alt={siteTitle} style={{ height: `${logoHeight}px` }} className="w-auto object-contain" /> // eslint-disable-line @next/next/no-img-element
+                : <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#FF6B35] text-white"><Zap size={18} /></span>
             ) : (
-              <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#FF6B35] text-white">
-                <Zap size={18} />
-              </span>
+              // Logo + Başlık (varsayılan)
+              <>
+                {logoUrl
+                  ? <img src={logoUrl} alt={siteTitle} style={{ height: `${logoHeight}px` }} className="w-auto object-contain" /> // eslint-disable-line @next/next/no-img-element
+                  : <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#FF6B35] text-white"><Zap size={18} /></span>
+                }
+                <span className={cn('transition-colors', scrolled ? 'text-[#1B2A4A]' : 'text-white')}>{siteTitle}</span>
+              </>
             )}
-            <span className={cn('transition-colors', scrolled ? 'text-[#1B2A4A]' : 'text-white')}>
-              {siteTitle}
-            </span>
           </button>
 
           {/* Desktop nav */}

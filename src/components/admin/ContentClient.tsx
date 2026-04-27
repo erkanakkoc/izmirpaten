@@ -57,25 +57,81 @@ function SiteSettingsPanel({ settings: init }: { settings: SiteSettings }) {
           </div>
         ))}
 
-        {/* Logo */}
-        <div className="md:col-span-2">
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Logo URL</label>
-          <div className="flex gap-4 items-start">
-            <input
-              type="text"
-              value={s.logo_url ?? ''}
-              onChange={(e) => set('logo_url', e.target.value)}
-              placeholder="https://... (PNG, SVG, WebP)"
-              className={`flex-1 ${INPUT_CLS}`}
-            />
-            {s.logo_url && (
-              <div className="flex-shrink-0 w-16 h-16 rounded-xl border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={s.logo_url} alt="Logo önizleme" className="max-w-full max-h-full object-contain p-1" />
-              </div>
-            )}
+        {/* Logo ayarları */}
+        <div className="md:col-span-2 p-5 rounded-2xl border border-gray-100 bg-gray-50 space-y-4">
+          <div className="font-semibold text-sm text-[#1B2A4A]">Logo Ayarları</div>
+
+          {/* Display mode */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Navbar Görünümü</label>
+            <div className="flex gap-3">
+              {([
+                ['logo_only', '🖼 Sadece Logo'],
+                ['logo_and_title', '🖼 Logo + Başlık'],
+                ['title_only', '✏️ Sadece Başlık'],
+              ] as [SiteSettings['logo_display_mode'], string][]).map(([val, label]) => (
+                <label key={val} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 cursor-pointer transition-all text-sm font-semibold ${
+                  (s.logo_display_mode ?? 'logo_and_title') === val
+                    ? 'border-[#FF6B35] bg-orange-50 text-[#FF6B35]'
+                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                }`}>
+                  <input
+                    type="radio"
+                    className="hidden"
+                    checked={(s.logo_display_mode ?? 'logo_and_title') === val}
+                    onChange={() => set('logo_display_mode', val!)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
           </div>
-          <p className="text-xs text-gray-400 mt-1">Boş bırakılırsa varsayılan ⚡ ikonu kullanılır.</p>
+
+          {/* Logo URL + height */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Logo URL</label>
+              <input
+                type="text"
+                value={s.logo_url ?? ''}
+                onChange={(e) => set('logo_url', e.target.value)}
+                placeholder="https://... (PNG, SVG, WebP)"
+                className={INPUT_CLS}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Logo Yüksekliği (px)</label>
+              <input
+                type="number"
+                min={16}
+                max={120}
+                value={s.logo_height ?? '32'}
+                onChange={(e) => set('logo_height', e.target.value)}
+                className={INPUT_CLS}
+              />
+            </div>
+          </div>
+
+          {/* Önizleme */}
+          {s.logo_url && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-400 mb-2">Önizleme</label>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#1B2A4A] rounded-xl">
+                {(s.logo_display_mode ?? 'logo_and_title') !== 'title_only' && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={s.logo_url}
+                    alt="Logo"
+                    style={{ height: `${s.logo_height ?? 32}px` }}
+                    className="w-auto object-contain"
+                  />
+                )}
+                {(s.logo_display_mode ?? 'logo_and_title') !== 'logo_only' && (
+                  <span className="font-extrabold text-white text-sm">{s.site_title || 'Site Başlığı'}</span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-semibold text-gray-700 mb-1.5">Hero Alt Başlığı</label>

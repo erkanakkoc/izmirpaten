@@ -79,6 +79,8 @@ export interface SiteSettings {
   site_title?: string
   site_slogan?: string
   logo_url?: string
+  logo_display_mode?: 'logo_only' | 'logo_and_title' | 'title_only'
+  logo_height?: string
   hero_title?: string
   hero_subtitle?: string
   hero_cta_text?: string
