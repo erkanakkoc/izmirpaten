@@ -78,6 +78,7 @@ export interface MailLog {
 export interface SiteSettings {
   site_title?: string
   site_slogan?: string
+  logo_url?: string
   hero_title?: string
   hero_subtitle?: string
   hero_cta_text?: string

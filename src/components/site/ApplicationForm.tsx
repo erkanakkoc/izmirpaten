@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import type { Package, Location } from '@/types'
 
@@ -35,6 +35,15 @@ export default function ApplicationForm({ packages, locations }: ApplicationForm
   })
 
   const set = (key: string, value: string | boolean) => setForm((p) => ({ ...p, [key]: value }))
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { id, name } = (e as CustomEvent<{ id: string; name: string }>).detail
+      setForm((p) => ({ ...p, package_id: id, package_name: name }))
+    }
+    window.addEventListener('selectPackage', handler)
+    return () => window.removeEventListener('selectPackage', handler)
+  }, [])
 
   const toggleDay = (day: string) => {
     setSelectedDays((prev) =>

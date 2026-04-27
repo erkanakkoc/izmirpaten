@@ -1,10 +1,39 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Zap, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
+
+function LogoHeader() {
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [siteTitle, setSiteTitle] = useState('Paten İzmir')
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.from('site_settings').select('key, value').in('key', ['logo_url', 'site_title']).then(({ data }) => {
+      const map = Object.fromEntries((data ?? []).map((s) => [s.key, s.value]))
+      if (map.logo_url) setLogoUrl(map.logo_url)
+      if (map.site_title) setSiteTitle(map.site_title)
+    })
+  }, [])
+
+  return (
+    <div className="text-center mb-8">
+      {logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logoUrl} alt={siteTitle} className="h-16 w-auto object-contain mx-auto mb-4" />
+      ) : (
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#FF6B35] mb-4">
+          <Zap size={28} className="text-white" />
+        </div>
+      )}
+      <h1 className="text-2xl font-extrabold text-white">{siteTitle}</h1>
+      <p className="text-blue-200 text-sm mt-1">Admin Paneli</p>
+    </div>
+  )
+}
 
 function LoginForm() {
   const [email, setEmail] = useState('')
@@ -84,13 +113,7 @@ export default function AdminLogin() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1B2A4A] to-[#2d4a8a] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#FF6B35] mb-4">
-            <Zap size={28} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-extrabold text-white">Paten İzmir</h1>
-          <p className="text-blue-200 text-sm mt-1">Admin Paneli</p>
-        </div>
+        <LogoHeader />
         <Suspense>
           <LoginForm />
         </Suspense>

@@ -10,7 +10,10 @@ interface PackagesSectionProps {
 }
 
 export default function PackagesSection({ packages }: PackagesSectionProps) {
-  const handleApply = () => {
+  const handleApply = (pkgId?: string, pkgName?: string) => {
+    if (pkgId && pkgName) {
+      window.dispatchEvent(new CustomEvent('selectPackage', { detail: { id: pkgId, name: pkgName } }))
+    }
     document.querySelector('#basvur')?.scrollIntoView({ behavior: 'smooth' })
   }
 
@@ -103,7 +106,7 @@ export default function PackagesSection({ packages }: PackagesSectionProps) {
 
               {/* CTA */}
               <button
-                onClick={handleApply}
+                onClick={() => handleApply(pkg.id, pkg.name)}
                 className={cn(
                   'w-full py-3 rounded-2xl font-bold text-sm transition-all hover:scale-105',
                   pkg.is_featured

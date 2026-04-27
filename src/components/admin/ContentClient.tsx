@@ -38,14 +38,14 @@ function SiteSettingsPanel({ settings: init }: { settings: SiteSettings }) {
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {([
-          ['Site Başlığı', 'site_title', false],
-          ['Site Sloganı', 'site_slogan', false],
-          ['Hero Başlığı', 'hero_title', false],
-          ['Hero CTA Metni', 'hero_cta_text', false],
-          ['Footer Sloganı', 'footer_slogan', false],
-          ['WhatsApp Numarası (90XXXXXXXXXX)', 'whatsapp_number', false],
-          ['Instagram URL', 'instagram_url', false],
-        ] as [string, keyof SiteSettings, boolean][]).map(([label, k]) => (
+          ['Site Başlığı', 'site_title'],
+          ['Site Sloganı', 'site_slogan'],
+          ['Hero Başlığı', 'hero_title'],
+          ['Hero CTA Metni', 'hero_cta_text'],
+          ['Footer Sloganı', 'footer_slogan'],
+          ['WhatsApp Numarası (90XXXXXXXXXX)', 'whatsapp_number'],
+          ['Instagram URL', 'instagram_url'],
+        ] as [string, keyof SiteSettings][]).map(([label, k]) => (
           <div key={k}>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
             <input
@@ -56,6 +56,27 @@ function SiteSettingsPanel({ settings: init }: { settings: SiteSettings }) {
             />
           </div>
         ))}
+
+        {/* Logo */}
+        <div className="md:col-span-2">
+          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Logo URL</label>
+          <div className="flex gap-4 items-start">
+            <input
+              type="text"
+              value={s.logo_url ?? ''}
+              onChange={(e) => set('logo_url', e.target.value)}
+              placeholder="https://... (PNG, SVG, WebP)"
+              className={`flex-1 ${INPUT_CLS}`}
+            />
+            {s.logo_url && (
+              <div className="flex-shrink-0 w-16 h-16 rounded-xl border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={s.logo_url} alt="Logo önizleme" className="max-w-full max-h-full object-contain p-1" />
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-gray-400 mt-1">Boş bırakılırsa varsayılan ⚡ ikonu kullanılır.</p>
+        </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-semibold text-gray-700 mb-1.5">Hero Alt Başlığı</label>
           <textarea rows={3} value={s.hero_subtitle ?? ''} onChange={(e) => set('hero_subtitle', e.target.value)}

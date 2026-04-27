@@ -14,7 +14,7 @@ const navItems = [
   { href: '/admin/content', label: 'İçerik', icon: Settings },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ logoUrl, siteTitle }: { logoUrl?: string; siteTitle?: string }) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -32,12 +32,17 @@ export default function Sidebar() {
     <aside className="w-64 flex-shrink-0 bg-[#1B2A4A] text-white flex flex-col h-screen sticky top-0">
       {/* Logo */}
       <div className="px-6 py-5 border-b border-white/10">
-        <div className="flex items-center gap-2">
-          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#FF6B35]">
-            <Zap size={18} />
-          </span>
+        <div className="flex items-center gap-3">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt={siteTitle ?? 'Logo'} className="h-9 w-auto object-contain" />
+          ) : (
+            <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#FF6B35] flex-shrink-0">
+              <Zap size={18} />
+            </span>
+          )}
           <div>
-            <div className="font-extrabold text-sm">Paten İzmir</div>
+            <div className="font-extrabold text-sm">{siteTitle ?? 'Paten İzmir'}</div>
             <div className="text-xs text-blue-300">Admin Paneli</div>
           </div>
         </div>

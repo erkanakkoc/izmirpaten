@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 
 interface NavbarProps {
   siteTitle?: string
+  logoUrl?: string
 }
 
 const navLinks = [
@@ -15,7 +16,7 @@ const navLinks = [
   { href: '#basvur', label: 'Başvur' },
 ]
 
-export default function Navbar({ siteTitle = 'Paten İzmir' }: NavbarProps) {
+export default function Navbar({ siteTitle = 'Paten İzmir', logoUrl }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
@@ -47,9 +48,14 @@ export default function Navbar({ siteTitle = 'Paten İzmir' }: NavbarProps) {
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="flex items-center gap-2 font-extrabold text-xl"
           >
-            <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#FF6B35] text-white">
-              <Zap size={18} />
-            </span>
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt={siteTitle} className="h-8 w-auto object-contain" />
+            ) : (
+              <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#FF6B35] text-white">
+                <Zap size={18} />
+              </span>
+            )}
             <span className={cn('transition-colors', scrolled ? 'text-[#1B2A4A]' : 'text-white')}>
               {siteTitle}
             </span>
