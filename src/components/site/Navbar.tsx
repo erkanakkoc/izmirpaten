@@ -50,7 +50,7 @@ export default function Navbar({ siteTitle = 'Paten İzmir', logoUrl, logoDispla
           {/* Logo */}
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="flex items-center gap-2 font-extrabold text-xl"
+            className="flex items-center gap-2 font-extrabold text-xl max-h-12 overflow-hidden"
           >
             {logoDisplayMode === 'title_only' ? (
               // Sadece metin — fallback ikon + başlık
@@ -63,13 +63,13 @@ export default function Navbar({ siteTitle = 'Paten İzmir', logoUrl, logoDispla
             ) : logoDisplayMode === 'logo_only' ? (
               // Sadece logo
               logoUrl
-                ? <img src={logoUrl} alt={siteTitle} style={{ height: `${logoHeight}px` }} className="w-auto object-contain" /> // eslint-disable-line @next/next/no-img-element
+                ? <img src={logoUrl} alt={siteTitle} style={{ height: `${Math.min(logoHeight, 48)}px` }} className="w-auto object-contain max-h-12" /> // eslint-disable-line @next/next/no-img-element
                 : <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#FF6B35] text-white"><Zap size={18} /></span>
             ) : (
               // Logo + Başlık (varsayılan)
               <>
                 {logoUrl
-                  ? <img src={logoUrl} alt={siteTitle} style={{ height: `${logoHeight}px` }} className="w-auto object-contain" /> // eslint-disable-line @next/next/no-img-element
+                  ? <img src={logoUrl} alt={siteTitle} style={{ height: `${Math.min(logoHeight, 48)}px` }} className="w-auto object-contain max-h-12" /> // eslint-disable-line @next/next/no-img-element
                   : <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#FF6B35] text-white"><Zap size={18} /></span>
                 }
                 <span className={cn('transition-colors', scrolled ? 'text-[#1B2A4A]' : 'text-white')}>{siteTitle}</span>
