@@ -13,8 +13,16 @@ export async function POST(req: NextRequest) {
     if (!user_id || !password) return NextResponse.json({ error: 'user_id ve şifre zorunlu.' }, { status: 400 })
     if (password.length < 6) return NextResponse.json({ error: 'Şifre en az 6 karakter olmalı.' }, { status: 400 })
 
-    const { error } = await service.auth.admin.updateUserById(user_id, { password })
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    // email_confirm: true → invited durumundaki kullanıcıyı onaylar,
+    // böylece şifre ile giriş yapabilirler
+    const { error } = await service.auth.admin.updateUserById(user_id, {
+      password,
+      email_confirm: true,
+    })
+    if (error) {
+      console.error('set-password error:', error)
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
     return NextResponse.json({ success: true })
   }
 
