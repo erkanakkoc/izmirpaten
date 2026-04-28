@@ -66,7 +66,7 @@ export default async function Home() {
       {settings.instagram_show_section === 'true' && (
         <InstagramSection instagramUrl={settings.instagram_url} />
       )}
-      <ApplicationForm packages={packages} locations={locations} />
+      <ApplicationForm packages={packages} locations={locations} kvkkUrl={settings.kvkk_url} />
       <Footer settings={settings} />
     </main>
   )

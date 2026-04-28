@@ -7,11 +7,12 @@ import type { Package, Location } from '@/types'
 interface ApplicationFormProps {
   packages: Package[]
   locations: Location[]
+  kvkkUrl?: string
 }
 
 const DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
 
-export default function ApplicationForm({ packages, locations }: ApplicationFormProps) {
+export default function ApplicationForm({ packages, locations, kvkkUrl }: ApplicationFormProps) {
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [isForOther, setIsForOther] = useState(false)
@@ -355,8 +356,14 @@ export default function ApplicationForm({ packages, locations }: ApplicationForm
             />
             <span className="text-sm text-gray-600 leading-relaxed">
               Kişisel verilerimin işlenmesine ilişkin{' '}
-              <span className="text-[#FF6B35] font-semibold">KVKK aydınlatma metnini</span> okudum ve
-              onaylıyorum. <span className="text-red-500">*</span>
+              {kvkkUrl ? (
+                <a href={kvkkUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-[#FF6B35] font-semibold underline underline-offset-2 hover:text-orange-600 transition-colors">
+                  KVKK aydınlatma metnini
+                </a>
+              ) : (
+                <span className="text-[#FF6B35] font-semibold">KVKK aydınlatma metnini</span>
+              )}{' '}okudum ve onaylıyorum. <span className="text-red-500">*</span>
             </span>
           </label>
 

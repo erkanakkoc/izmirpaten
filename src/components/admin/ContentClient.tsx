@@ -47,6 +47,7 @@ function SiteSettingsPanel({ settings: init }: { settings: SiteSettings }) {
           ['Footer Sloganı', 'footer_slogan'],
           ['WhatsApp Numarası (90XXXXXXXXXX)', 'whatsapp_number'],
           ['Instagram URL', 'instagram_url'],
+          ['KVKK Aydınlatma Metni URL', 'kvkk_url'],
         ] as [string, keyof SiteSettings][]).map(([label, k]) => (
           <div key={k}>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
@@ -621,12 +622,12 @@ function FooterPanel({ settings: init }: { settings: SiteSettings }) {
             <button onClick={() => removeLink(i)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg"><X size={14} /></button>
           </div>
         ))}
-        <div className="flex gap-2 mt-3">
+        <div className="flex flex-wrap gap-2 mt-3">
           <input value={newLink.label} onChange={(e) => setNewLink(p => ({ ...p, label: e.target.value }))}
-            placeholder="Link metni" className={`w-36 ${SMALL_INPUT_CLS}`} />
+            placeholder="Link metni" className={`w-full sm:w-36 ${SMALL_INPUT_CLS}`} />
           <input value={newLink.url} onChange={(e) => setNewLink(p => ({ ...p, url: e.target.value }))}
-            placeholder="https://..." className={`flex-1 ${SMALL_INPUT_CLS}`} />
-          <button onClick={addLink} className="px-3 py-2.5 bg-[#FF6B35] text-white rounded-xl text-sm font-bold">Ekle</button>
+            placeholder="https://..." className={`flex-1 min-w-0 ${SMALL_INPUT_CLS}`} />
+          <button onClick={addLink} className="w-full sm:w-auto px-4 py-2.5 bg-[#FF6B35] text-white rounded-xl text-sm font-bold">Ekle</button>
         </div>
       </div>
       <div className="flex justify-end">
@@ -698,6 +699,114 @@ function SiteTogglesPanel({ settings: init }: { settings: SiteSettings }) {
   )
 }
 
+// ===================== USERS PANEL =====================
+interface AdminUser { email: string; location_filter: string | null }
+
+function UsersPanel({ locations }: { locations: Location[] }) {
+  const [users, setUsers] = useState<AdminUser[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [newEmail, setNewEmail] = useState('')
+  const [newFilter, setNewFilter] = useState('')
+  const [adding, setAdding] = useState(false)
+
+  const load = async () => {
+    const supabase = createClient()
+    const { data } = await supabase.from('allowed_emails').select('email, location_filter')
+    setUsers((data as AdminUser[]) ?? [])
+    setLoaded(true)
+  }
+
+  if (!loaded) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
+        <button onClick={load} className="px-5 py-2.5 bg-[#FF6B35] text-white rounded-xl text-sm font-bold hover:bg-orange-500">
+          Kullanıcıları Yükle
+        </button>
+      </div>
+    )
+  }
+
+  const addUser = async () => {
+    if (!newEmail) { toast.error('E-posta zorunlu.'); return }
+    setAdding(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('allowed_emails').insert({
+      email: newEmail,
+      location_filter: newFilter || null,
+    })
+    if (error) { toast.error('Eklenemedi: ' + error.message); setAdding(false); return }
+    setUsers(p => [...p, { email: newEmail, location_filter: newFilter || null }])
+    setNewEmail(''); setNewFilter(''); setAdding(false)
+    toast.success('Kullanıcı eklendi.')
+  }
+
+  const updateFilter = async (email: string, filter: string) => {
+    const supabase = createClient()
+    await supabase.from('allowed_emails').update({ location_filter: filter || null }).eq('email', email)
+    setUsers(p => p.map(u => u.email === email ? { ...u, location_filter: filter || null } : u))
+    toast.success('Kısıt güncellendi.')
+  }
+
+  const removeUser = async (email: string) => {
+    const supabase = createClient()
+    await supabase.from('allowed_emails').delete().eq('email', email)
+    setUsers(p => p.filter(u => u.email !== email))
+    toast.success('Kullanıcı silindi.')
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100">
+        <h3 className="font-bold text-[#1B2A4A]">Admin Kullanıcıları</h3>
+        <p className="text-xs text-gray-400 mt-0.5">Lokasyon kısıtı olan kullanıcılar sadece o lokasyona ait başvuruları görür.</p>
+      </div>
+
+      {/* Mevcut kullanıcılar */}
+      <div className="divide-y divide-gray-50">
+        {users.map((u) => (
+          <div key={u.email} className="px-6 py-4 flex flex-wrap items-center gap-3">
+            <span className="font-semibold text-sm text-[#1B2A4A] flex-1 min-w-48">{u.email}</span>
+            <select
+              defaultValue={u.location_filter ?? ''}
+              onChange={(e) => updateFilter(u.email, e.target.value)}
+              className="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35] bg-white"
+            >
+              <option value="">Tam Erişim</option>
+              {locations.map(l => <option key={l.id} value={l.name}>{l.name} Sadece</option>)}
+            </select>
+            <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${u.location_filter ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+              {u.location_filter ? `${u.location_filter} kısıtlı` : 'Tam Erişim'}
+            </span>
+            <button onClick={() => removeUser(u.email)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-400">
+              <X size={15} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Yeni kullanıcı ekle */}
+      <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
+        <div className="text-xs font-semibold text-gray-500 mb-3">Yeni Kullanıcı Ekle</div>
+        <div className="flex flex-wrap gap-2">
+          <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
+            placeholder="E-posta adresi *" type="email"
+            className={`flex-1 min-w-48 ${SMALL_INPUT_CLS}`} />
+          <select value={newFilter} onChange={(e) => setNewFilter(e.target.value)}
+            className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35] bg-white">
+            <option value="">Tam Erişim</option>
+            {locations.map(l => <option key={l.id} value={l.name}>{l.name} Sadece</option>)}
+          </select>
+          <button onClick={addUser} disabled={adding}
+            className="px-4 py-2.5 bg-[#FF6B35] text-white rounded-xl text-sm font-bold hover:bg-orange-500 disabled:opacity-60">
+            {adding ? 'Ekleniyor...' : 'Ekle'}
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mt-2">⚠️ Eklenen kullanıcının Supabase Authentication&apos;da da hesabı olmalı.</p>
+      </div>
+    </div>
+  )
+}
+
 // ===================== MAIN COMPONENT =====================
 interface Props {
   settings: SiteSettings
@@ -708,7 +817,7 @@ interface Props {
   galleryImages: GalleryImage[]
 }
 
-type Tab = 'settings' | 'packages' | 'locations' | 'features' | 'info_cards' | 'footer' | 'toggles' | 'gallery'
+type Tab = 'settings' | 'packages' | 'locations' | 'features' | 'info_cards' | 'footer' | 'toggles' | 'gallery' | 'users'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'settings', label: '⚙️ Site Ayarları' },
@@ -719,6 +828,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'footer', label: '📄 Footer' },
   { key: 'toggles', label: '🔘 Bölümler' },
   { key: 'gallery', label: '🖼 Galeri' },
+  { key: 'users', label: '👤 Kullanıcılar' },
 ]
 
 export default function ContentClient({
@@ -752,6 +862,7 @@ export default function ContentClient({
       {activeTab === 'footer' && <FooterPanel settings={initialSettings} />}
       {activeTab === 'toggles' && <SiteTogglesPanel settings={initialSettings} />}
       {activeTab === 'gallery' && <GalleryManager images={galleryImages} />}
+      {activeTab === 'users' && <UsersPanel locations={initialLocations} />}
     </div>
   )
 }

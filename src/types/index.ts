@@ -91,6 +91,7 @@ export interface SiteSettings {
   instagram_url?: string
   instagram_show_section?: string
   whatsapp_number?: string
+  kvkk_url?: string
   admin_email_template?: string
   show_reviews?: string
   show_gallery?: string
