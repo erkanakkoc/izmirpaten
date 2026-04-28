@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Menu, X, Zap } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Menu, X, Zap, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type LogoDisplayMode = 'logo_only' | 'logo_and_title' | 'title_only'
@@ -23,6 +23,18 @@ const navLinks = [
 export default function Navbar({ siteTitle = 'Paten İzmir', logoUrl, logoDisplayMode = 'logo_and_title', logoHeight = 32 }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
+  const loginRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (loginRef.current && !loginRef.current.contains(e.target as Node)) {
+        setLoginOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20)
@@ -97,6 +109,38 @@ export default function Navbar({ siteTitle = 'Paten İzmir', logoUrl, logoDispla
             >
               Hemen Başvur
             </button>
+
+            {/* Giriş dropdown */}
+            <div ref={loginRef} className="relative ml-1">
+              <button
+                onClick={() => setLoginOpen(!loginOpen)}
+                title="Giriş Yap"
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-semibold border transition-all',
+                  scrolled
+                    ? 'border-gray-200 text-[#1B2A4A] hover:bg-gray-50'
+                    : 'border-white/30 text-white hover:bg-white/10'
+                )}
+              >
+                <User size={15} />
+                <span className="hidden sm:inline">Giriş</span>
+              </button>
+              {loginOpen && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
+                  <a href="/trainer/login"
+                    className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-[#1B2A4A] hover:bg-orange-50 transition-colors">
+                    <span className="w-7 h-7 rounded-lg bg-[#1B2A4A] flex items-center justify-center text-white text-xs">🎓</span>
+                    Eğitmen Girişi
+                  </a>
+                  <div className="border-t border-gray-50" />
+                  <a href="/student/login"
+                    className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-[#1B2A4A] hover:bg-orange-50 transition-colors">
+                    <span className="w-7 h-7 rounded-lg bg-[#FF6B35] flex items-center justify-center text-white text-xs">🛼</span>
+                    Öğrenci Girişi
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Mobile menu button */}
@@ -120,13 +164,23 @@ export default function Navbar({ siteTitle = 'Paten İzmir', logoUrl, logoDispla
                 {link.label}
               </button>
             ))}
-            <div className="p-3">
+            <div className="p-3 space-y-2">
               <button
                 onClick={() => handleNavClick('#basvur')}
                 className="w-full px-5 py-3 bg-[#FF6B35] text-white rounded-xl text-sm font-bold hover:bg-orange-500 transition-all"
               >
                 Hemen Başvur
               </button>
+              <div className="grid grid-cols-2 gap-2">
+                <a href="/trainer/login"
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 bg-[#1B2A4A] text-white rounded-xl text-xs font-bold hover:bg-[#2d4a8a] transition-all">
+                  🎓 Eğitmen Girişi
+                </a>
+                <a href="/student/login"
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 bg-orange-100 text-[#FF6B35] rounded-xl text-xs font-bold hover:bg-orange-200 transition-all">
+                  🛼 Öğrenci Girişi
+                </a>
+              </div>
             </div>
           </div>
         )}

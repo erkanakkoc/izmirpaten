@@ -11,12 +11,14 @@ export async function POST(req: NextRequest) {
 
   const service = await createServiceClient()
 
-  // Supabase Auth davet
+  // Supabase Auth davet — redirectTo Supabase Dashboard'da Redirect URLs'e eklenmiş olmalı
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://patenizmir.com'
   const { data: authData, error: authErr } = await service.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/student`,
+    redirectTo: `${siteUrl}/student/login`,
   })
   if (authErr && !authErr.message.includes('already')) {
-    return NextResponse.json({ error: authErr.message }, { status: 400 })
+    console.error('Invite student error:', authErr)
+    return NextResponse.json({ error: `Davet gönderilemedi: ${authErr.message}` }, { status: 400 })
   }
 
   const authUserId = authData?.user?.id
