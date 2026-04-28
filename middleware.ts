@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Auth kontrolü layout'ta yapılıyor — middleware sadece pass-through
+// Auth kontrolü her portalin kendi layout'unda yapılıyor
+// Middleware sadece cookie'leri pass-through eder
 export function middleware(request: NextRequest) {
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/trainer/:path*', '/student/:path*'],
 }

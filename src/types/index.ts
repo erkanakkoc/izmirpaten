@@ -116,3 +116,92 @@ export interface GalleryImage {
   is_active: boolean
   created_at: string
 }
+
+export interface Trainer {
+  id: string
+  user_id: string | null
+  name: string
+  email: string
+  phone: string | null
+  bio: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface TrainerAvailability {
+  id: string
+  trainer_id: string
+  day_of_week: number
+  start_time: string
+  end_time: string
+  location_id: string | null
+  is_active: boolean
+}
+
+export interface Student {
+  id: string
+  user_id: string | null
+  application_id: string | null
+  full_name: string
+  email: string
+  phone: string | null
+  created_at: string
+}
+
+export interface Enrollment {
+  id: string
+  student_id: string
+  trainer_id: string | null
+  package_id: string | null
+  package_name: string
+  total_lessons: number
+  lessons_remaining: number
+  is_active: boolean
+  created_at: string
+}
+
+export type LessonStatus = 'pending' | 'approved' | 'completed' | 'cancelled'
+
+export interface Lesson {
+  id: string
+  enrollment_id: string
+  trainer_id: string | null
+  student_id: string
+  location_id: string | null
+  scheduled_at: string
+  duration_minutes: number
+  status: LessonStatus
+  trainer_note: string | null
+  student_note: string | null
+  created_at: string
+}
+
+export type PaymentStatus = 'pending' | 'confirmed' | 'rejected'
+
+export interface PaymentRequest {
+  id: string
+  student_id: string
+  package_id: string | null
+  package_name: string
+  amount: number
+  status: PaymentStatus
+  student_note: string | null
+  admin_note: string | null
+  created_at: string
+  confirmed_at: string | null
+}
+
+export interface Notification {
+  id: string
+  created_at: string
+  type: string
+  target_role: string
+  target_user_id: string | null
+  title: string
+  message: string | null
+  is_read: boolean
+  link: string | null
+  data: Record<string, unknown> | null
+}
+
+export const DAYS_TR = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi']
