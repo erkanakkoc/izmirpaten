@@ -1,127 +1,245 @@
 'use client'
 
-import { useState } from 'react'
-import { toast } from 'sonner'
-import { Plus, Trash2 } from 'lucide-react'
-import type { TrainerAvailability, Location } from '@/types'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { DAYS_TR } from '@/types'
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
-interface Props {
-  trainerId: string
-  availability: TrainerAvailability[]
-  locations: Location[]
+const HOURS = Array.from({ length: 15 }, (_, i) => i + 8) // 08:00 – 22:00
+const DAYS_SHORT = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt']
+const MONTHS_TR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
+
+interface Slot { id: string; slot_date: string; slot_hour: number; is_booked: boolean }
+
+function toDateStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export default function AvailabilityManager({ trainerId, availability: init, locations }: Props) {
-  const [slots, setSlots] = useState<TrainerAvailability[]>(init)
-  const [form, setForm] = useState({ day_of_week: '1', start_time: '09:00', end_time: '21:00', location_id: '' })
-  const [adding, setAdding] = useState(false)
+function getDaysInMonth(year: number, month: number): Date[] {
+  const days: Date[] = []
+  const d = new Date(year, month, 1)
+  while (d.getMonth() === month) { days.push(new Date(d)); d.setDate(d.getDate() + 1) }
+  return days
+}
 
-  const add = async () => {
-    setAdding(true)
+interface Props { trainerId: string }
+
+export default function AvailabilityManager({ trainerId }: Props) {
+  const today = new Date()
+  const [year, setYear] = useState(today.getFullYear())
+  const [month, setMonth] = useState(today.getMonth())
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [slots, setSlots] = useState<Slot[]>([])
+  const [loading, setLoading] = useState(false)
+  const [toggling, setToggling] = useState<string | null>(null)
+
+  const fetchSlots = useCallback(async () => {
+    setLoading(true)
     const supabase = createClient()
-    const { data, error } = await supabase.from('trainer_availability').insert({
-      trainer_id: trainerId,
-      day_of_week: parseInt(form.day_of_week),
-      start_time: form.start_time,
-      end_time: form.end_time,
-      location_id: form.location_id || null,
-      is_active: true,
-    }).select().single()
-    if (error) { toast.error(error.message); setAdding(false); return }
-    setSlots(p => [...p, data])
-    toast.success('Müsaitlik eklendi.')
-    setAdding(false)
+    const from = `${year}-${String(month + 1).padStart(2, '0')}-01`
+    const lastDay = new Date(year, month + 1, 0).getDate()
+    const to = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    const { data } = await supabase
+      .from('trainer_slots')
+      .select('id, slot_date, slot_hour, is_booked')
+      .eq('trainer_id', trainerId)
+      .gte('slot_date', from)
+      .lte('slot_date', to)
+    setSlots(data ?? [])
+    setLoading(false)
+  }, [trainerId, year, month])
+
+  useEffect(() => { fetchSlots() }, [fetchSlots])
+
+  const toggleSlot = async (date: string, hour: number) => {
+    const key = `${date}-${hour}`
+    setToggling(key)
+    const supabase = createClient()
+    const existing = slots.find(s => s.slot_date === date && s.slot_hour === hour)
+
+    if (existing) {
+      if (existing.is_booked) { toast.error('Bu saat rezerve edilmiş, silinemez.'); setToggling(null); return }
+      const { error } = await supabase.from('trainer_slots').delete().eq('id', existing.id)
+      if (error) { toast.error('Silinemedi.'); setToggling(null); return }
+      setSlots(p => p.filter(s => s.id !== existing.id))
+    } else {
+      const { data, error } = await supabase.from('trainer_slots').insert({
+        trainer_id: trainerId, slot_date: date, slot_hour: hour, is_booked: false,
+      }).select().single()
+      if (error) { toast.error('Eklenemedi.'); setToggling(null); return }
+      setSlots(p => [...p, data])
+    }
+    setToggling(null)
   }
 
-  const remove = async (id: string) => {
+  // Günü tüm saatlerle doldur ya da tamamen boşalt
+  const fillDay = async (date: string) => {
     const supabase = createClient()
-    await supabase.from('trainer_availability').delete().eq('id', id)
-    setSlots(p => p.filter(s => s.id !== id))
-    toast.success('Silindi.')
+    const daySlots = slots.filter(s => s.slot_date === date && !s.is_booked)
+    if (daySlots.length === HOURS.length) {
+      // Hepsini sil
+      await supabase.from('trainer_slots').delete().eq('trainer_id', trainerId).eq('slot_date', date).eq('is_booked', false)
+      setSlots(p => p.filter(s => s.slot_date !== date || s.is_booked))
+      toast.success('Gün temizlendi.')
+    } else {
+      // Eksik saatleri ekle
+      const existingHours = new Set(slots.filter(s => s.slot_date === date).map(s => s.slot_hour))
+      const missing = HOURS.filter(h => !existingHours.has(h))
+      if (missing.length === 0) return
+      const { data, error } = await supabase.from('trainer_slots').insert(
+        missing.map(h => ({ trainer_id: trainerId, slot_date: date, slot_hour: h, is_booked: false }))
+      ).select()
+      if (error) { toast.error('Eklenemedi.'); return }
+      setSlots(p => [...p, ...(data ?? [])])
+      toast.success('Tüm saatler eklendi.')
+    }
   }
 
-  const toggle = async (slot: TrainerAvailability) => {
-    const supabase = createClient()
-    await supabase.from('trainer_availability').update({ is_active: !slot.is_active }).eq('id', slot.id)
-    setSlots(p => p.map(s => s.id === slot.id ? { ...s, is_active: !slot.is_active } : s))
-  }
+  const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y - 1) } else setMonth(m => m - 1); setSelectedDate(null) }
+  const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1) } else setMonth(m => m + 1); setSelectedDate(null) }
 
-  const grouped = DAYS_TR.map((day, i) => ({
-    day, dayIndex: i,
-    slots: slots.filter(s => s.day_of_week === i),
-  }))
+  const days = getDaysInMonth(year, month)
+  const firstDayOfWeek = days[0].getDay() // 0=Sun
+  const todayStr = toDateStr(today)
 
-  const CLS = 'px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35] bg-white'
+  const slotCountForDay = (date: string) => slots.filter(s => s.slot_date === date).length
+  const bookedCountForDay = (date: string) => slots.filter(s => s.slot_date === date && s.is_booked).length
+
+  const selectedSlots = selectedDate ? slots.filter(s => s.slot_date === selectedDate) : []
 
   return (
-    <div className="space-y-4">
-      {/* Yeni ekle */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <h3 className="font-bold text-[#1B2A4A] mb-4">Müsaitlik Ekle</h3>
-        <div className="flex flex-wrap gap-3 items-end">
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Gün</label>
-            <select value={form.day_of_week} onChange={e => setForm(p => ({ ...p, day_of_week: e.target.value }))} className={CLS}>
-              {DAYS_TR.map((d, i) => <option key={i} value={i}>{d}</option>)}
-            </select>
+    <div className="space-y-5">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {/* Takvim başlığı */}
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <button onClick={prevMonth} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+            <ChevronLeft size={18} />
+          </button>
+          <div className="font-extrabold text-[#1B2A4A] text-lg">
+            {MONTHS_TR[month]} {year}
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Başlangıç</label>
-            <input type="time" value={form.start_time} onChange={e => setForm(p => ({ ...p, start_time: e.target.value }))} className={CLS} />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Bitiş</label>
-            <input type="time" value={form.end_time} onChange={e => setForm(p => ({ ...p, end_time: e.target.value }))} className={CLS} />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Lokasyon</label>
-            <select value={form.location_id} onChange={e => setForm(p => ({ ...p, location_id: e.target.value }))} className={CLS}>
-              <option value="">Tümü</option>
-              {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
-          </div>
-          <button onClick={add} disabled={adding}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#FF6B35] text-white rounded-xl text-sm font-bold hover:bg-orange-500 disabled:opacity-60">
-            <Plus size={15} /> Ekle
+          <button onClick={nextMonth} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+            <ChevronRight size={18} />
           </button>
         </div>
-      </div>
 
-      {/* Haftalık görünüm */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {grouped.map(({ day, dayIndex, slots: daySlots }) => (
-          <div key={dayIndex} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className={`px-4 py-3 font-bold text-sm ${daySlots.length > 0 ? 'bg-[#FF6B35]/10 text-[#FF6B35]' : 'bg-gray-50 text-gray-400'}`}>
-              {day}
-              {daySlots.length > 0 && <span className="ml-2 text-xs bg-[#FF6B35] text-white px-1.5 py-0.5 rounded-full">{daySlots.length}</span>}
+        {loading && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 size={24} className="animate-spin text-[#FF6B35]" />
+          </div>
+        )}
+
+        {!loading && (
+          <div className="p-4">
+            {/* Gün başlıkları */}
+            <div className="grid grid-cols-7 mb-2">
+              {DAYS_SHORT.map(d => (
+                <div key={d} className="text-center text-xs font-bold text-gray-400 py-1">{d}</div>
+              ))}
             </div>
-            <div className="divide-y divide-gray-50">
-              {daySlots.map(slot => {
-                const loc = locations.find(l => l.id === slot.location_id)
+
+            {/* Takvim grid */}
+            <div className="grid grid-cols-7 gap-1">
+              {/* Boş günler (ayın ilk gününden öncesi) */}
+              {Array.from({ length: firstDayOfWeek }, (_, i) => (
+                <div key={`empty-${i}`} />
+              ))}
+              {days.map(day => {
+                const dateStr = toDateStr(day)
+                const count = slotCountForDay(dateStr)
+                const booked = bookedCountForDay(dateStr)
+                const isPast = dateStr < todayStr
+                const isSelected = selectedDate === dateStr
+                const isToday = dateStr === todayStr
+
                 return (
-                  <div key={slot.id} className={`px-4 py-3 flex items-center gap-2 ${!slot.is_active ? 'opacity-50' : ''}`}>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-[#1B2A4A]">{slot.start_time.slice(0,5)} – {slot.end_time.slice(0,5)}</div>
-                      {loc && <div className="text-xs text-gray-400">{loc.name}</div>}
-                    </div>
-                    <button onClick={() => toggle(slot)} className={`text-xs px-2 py-0.5 rounded-full font-semibold ${slot.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {slot.is_active ? 'Aktif' : 'Pasif'}
-                    </button>
-                    <button onClick={() => remove(slot.id)} className="p-1.5 hover:bg-red-50 text-red-400 rounded-lg">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                  <button
+                    key={dateStr}
+                    onClick={() => !isPast && setSelectedDate(isSelected ? null : dateStr)}
+                    disabled={isPast}
+                    className={`
+                      relative aspect-square flex flex-col items-center justify-center rounded-xl text-sm transition-all
+                      ${isPast ? 'opacity-30 cursor-not-allowed' : 'hover:bg-orange-50 cursor-pointer'}
+                      ${isSelected ? 'bg-[#FF6B35] text-white hover:bg-[#FF6B35]' : ''}
+                      ${isToday && !isSelected ? 'ring-2 ring-[#FF6B35]' : ''}
+                    `}
+                  >
+                    <span className="font-semibold text-sm">{day.getDate()}</span>
+                    {count > 0 && (
+                      <span className={`text-xs font-bold mt-0.5 ${isSelected ? 'text-white/80' : booked > 0 ? 'text-amber-500' : 'text-green-500'}`}>
+                        {count - booked}/{count}
+                      </span>
+                    )}
+                  </button>
                 )
               })}
-              {daySlots.length === 0 && (
-                <div className="px-4 py-3 text-xs text-gray-400">Müsaitlik yok</div>
-              )}
             </div>
           </div>
-        ))}
+        )}
       </div>
+
+      {/* Seçili gün — saat seçimi */}
+      {selectedDate && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div>
+              <div className="font-bold text-[#1B2A4A]">
+                {new Date(selectedDate + 'T12:00:00').toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </div>
+              <div className="text-xs text-gray-400 mt-0.5">
+                {selectedSlots.filter(s => !s.is_booked).length} müsait • {selectedSlots.filter(s => s.is_booked).length} rezerve
+              </div>
+            </div>
+            <button onClick={() => fillDay(selectedDate)}
+              className="px-4 py-2 text-xs font-bold rounded-xl border border-gray-200 hover:bg-orange-50 hover:border-orange-200 hover:text-[#FF6B35] transition-all">
+              {selectedSlots.filter(s => !s.is_booked).length === HOURS.length ? 'Tümünü Kaldır' : 'Tümünü Ekle'}
+            </button>
+          </div>
+
+          <div className="p-5">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+              {HOURS.map(hour => {
+                const slot = selectedSlots.find(s => s.slot_hour === hour)
+                const key = `${selectedDate}-${hour}`
+                const isBooked = slot?.is_booked ?? false
+                const isAvailable = !!slot && !isBooked
+                const isLoading = toggling === key
+
+                return (
+                  <button
+                    key={hour}
+                    onClick={() => !isBooked && toggleSlot(selectedDate, hour)}
+                    disabled={isBooked || isLoading}
+                    className={`
+                      relative py-3 rounded-xl text-sm font-bold transition-all border-2
+                      ${isBooked
+                        ? 'bg-red-50 border-red-200 text-red-500 cursor-not-allowed'
+                        : isAvailable
+                          ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
+                          : 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-orange-50 hover:border-orange-200 hover:text-[#FF6B35]'
+                      }
+                    `}
+                  >
+                    {isLoading ? <Loader2 size={14} className="animate-spin mx-auto" /> : (
+                      <>
+                        <span>{String(hour).padStart(2, '0')}:00</span>
+                        {isBooked && <span className="block text-xs font-normal">rezerve</span>}
+                        {isAvailable && <span className="block text-xs font-normal">müsait ✓</span>}
+                      </>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-3 text-xs text-gray-400">
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-green-100 border border-green-300 inline-block" /> Müsait</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-gray-100 border border-gray-200 inline-block" /> Müsait değil</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-red-100 border border-red-200 inline-block" /> Rezerve (değiştirilemez)</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -12,18 +12,15 @@ export default async function TrainerAvailabilityPage() {
   const { data: trainer } = await supabase.from('trainers').select('id').eq('user_id', user.id).single()
   if (!trainer) redirect('/trainer/login')
 
-  const [availRes, locationsRes] = await Promise.all([
-    supabase.from('trainer_availability').select('*').eq('trainer_id', trainer.id).order('day_of_week'),
-    supabase.from('locations').select('*').eq('is_active', true),
-  ])
-
   return (
     <div className="p-6 md:p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-extrabold text-[#1B2A4A]">Müsaitlik Takvimi</h1>
-        <p className="text-gray-500 text-sm mt-1">Hangi gün ve saatlerde ders verebileceğini belirt.</p>
+        <p className="text-gray-500 text-sm mt-1">
+          Takvimde bir güne tıkla → saat saat müsaitliğini belirle. Yeşil = müsait, Kırmızı = rezerve.
+        </p>
       </div>
-      <AvailabilityManager trainerId={trainer.id} availability={availRes.data ?? []} locations={locationsRes.data ?? []} />
+      <AvailabilityManager trainerId={trainer.id} />
     </div>
   )
 }

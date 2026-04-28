@@ -4,7 +4,9 @@
       "Bash(npm run *)",
       "Bash(git add *)",
       "Bash(git commit -m 'fix: cap logo height at 48px in navbar to prevent overflow *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(npx tsc *)",
+      "Bash(git commit -m 'feat: calendar-based hourly availability system *)"
     ]
   }
 }
