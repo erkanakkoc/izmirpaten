@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Loader2, CreditCard, CheckCircle2 } from 'lucide-react'
+import { Loader2, CreditCard, CheckCircle2, RefreshCw } from 'lucide-react'
 import type { Enrollment, Package, PaymentRequest } from '@/types'
 import { formatPrice } from '@/lib/utils'
 
@@ -18,8 +18,26 @@ export default function PackageRenewal({ studentId, enrollments, packages, payme
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [changeReason, setChangeReason] = useState('')
+  const [requestingChange, setRequestingChange] = useState(false)
+  const [changeRequested, setChangeRequested] = useState(false)
 
   const active = enrollments.find(e => e.is_active)
+
+  const requestTrainerChange = async () => {
+    setRequestingChange(true)
+    try {
+      const res = await fetch('/api/student/request-trainer-change', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: changeReason }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setChangeRequested(true)
+      toast.success('Eğitmen değişikliği talebiniz gönderildi.')
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Hata.') }
+    finally { setRequestingChange(false) }
+  }
   const pending = paymentRequests.find(p => p.status === 'pending')
 
   const submit = async () => {
@@ -65,6 +83,38 @@ export default function PackageRenewal({ studentId, enrollments, packages, payme
             <div className={`h-3 rounded-full transition-all ${active.lessons_remaining <= 1 ? 'bg-red-400' : active.lessons_remaining <= 2 ? 'bg-amber-400' : 'bg-green-400'}`}
               style={{ width: `${(active.lessons_remaining / active.total_lessons) * 100}%` }} />
           </div>
+          {active.lessons_remaining <= 1 && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-xl">
+              <p className="text-sm text-red-700 font-semibold">⚠️ Son {active.lessons_remaining} ders hakkınız kaldı!</p>
+              <p className="text-xs text-red-600 mt-0.5">Aşağıdan paketinizi yenileyin.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Eğitmen değişikliği talebi */}
+      {active && !changeRequested && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h2 className="font-bold text-[#1B2A4A] mb-2 flex items-center gap-2">
+            <RefreshCw size={16} className="text-[#FF6B35]" /> Eğitmen Değişikliği Talep Et
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">Eğitmeninizin değiştirilmesini talep edebilirsiniz. Admin inceleyip onaylayacaktır.</p>
+          <div className="mb-4">
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Neden? (opsiyonel)</label>
+            <textarea rows={2} value={changeReason} onChange={e => setChangeReason(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35] resize-none" />
+          </div>
+          <button onClick={requestTrainerChange} disabled={requestingChange}
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white rounded-xl text-sm font-bold hover:bg-blue-600 disabled:opacity-60">
+            {requestingChange ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            Talep Gönder
+          </button>
+        </div>
+      )}
+      {changeRequested && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 text-center">
+          <CheckCircle2 size={28} className="text-blue-500 mx-auto mb-2" />
+          <p className="font-semibold text-blue-800 text-sm">Eğitmen değişikliği talebiniz alındı. Admin inceleyecek.</p>
         </div>
       )}
 

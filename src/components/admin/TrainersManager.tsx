@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Plus, Loader2, ToggleLeft, ToggleRight, User } from 'lucide-react'
+import { Plus, Loader2, ToggleLeft, ToggleRight, User, Trash2 } from 'lucide-react'
 import type { Trainer, Location } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 
@@ -16,6 +16,8 @@ export default function TrainersManager({ trainers: init, locations }: Props) {
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', phone: '', bio: '' })
   const [loading, setLoading] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const invite = async () => {
     if (!form.name || !form.email) { toast.error('Ad ve e-posta zorunlu.'); return }
@@ -34,6 +36,23 @@ export default function TrainersManager({ trainers: init, locations }: Props) {
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Hata oluştu.')
     } finally { setLoading(false) }
+  }
+
+  const deleteTrainer = async (id: string) => {
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/admin/delete-trainer', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainer_id: id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setTrainers(p => p.filter(t => t.id !== id))
+      setDeleteConfirm(null)
+      toast.success('Eğitmen silindi.')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Hata.')
+    } finally { setDeleting(false) }
   }
 
   const toggleActive = async (t: Trainer) => {
@@ -97,6 +116,10 @@ export default function TrainersManager({ trainers: init, locations }: Props) {
                 <button onClick={() => toggleActive(t)}>
                   {t.is_active ? <ToggleRight size={22} className="text-green-500" /> : <ToggleLeft size={22} className="text-gray-300" />}
                 </button>
+                <button onClick={() => setDeleteConfirm(t.id)}
+                  className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition-colors" title="Sil">
+                  <Trash2 size={16} />
+                </button>
               </div>
             </div>
           ))}
@@ -105,6 +128,32 @@ export default function TrainersManager({ trainers: init, locations }: Props) {
           )}
         </div>
       </div>
+
+      {/* Silme onay modalı */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6">
+            <h3 className="font-bold text-[#1B2A4A] text-lg mb-2">Eğitmeni Sil</h3>
+            <p className="text-sm text-gray-500 mb-2">
+              Bu eğitmeni silmek istediğinizden emin misiniz?
+            </p>
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 p-2 rounded-xl mb-5">
+              ⚠️ Eğitmenin Supabase hesabı, müsaitlikleri silinir. Bağlı öğrencilerin kaydındaki eğitmen alanı boşalır.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteConfirm(null)}
+                className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold hover:bg-gray-50">
+                İptal
+              </button>
+              <button onClick={() => deleteTrainer(deleteConfirm)} disabled={deleting}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 disabled:opacity-60">
+                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                Sil
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
