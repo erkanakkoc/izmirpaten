@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Plus, Loader2, ToggleLeft, ToggleRight, User, Trash2 } from 'lucide-react'
+import { Plus, Loader2, ToggleLeft, ToggleRight, User, Trash2, KeyRound, Mail } from 'lucide-react'
 import type { Trainer, Location } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 
@@ -18,6 +18,9 @@ export default function TrainersManager({ trainers: init, locations }: Props) {
   const [loading, setLoading] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [pwModal, setPwModal] = useState<{ trainer: Trainer } | null>(null)
+  const [newPw, setNewPw] = useState('')
+  const [pwLoading, setPwLoading] = useState(false)
 
   const invite = async () => {
     if (!form.name || !form.email) { toast.error('Ad ve e-posta zorunlu.'); return }
@@ -53,6 +56,33 @@ export default function TrainersManager({ trainers: init, locations }: Props) {
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Hata.')
     } finally { setDeleting(false) }
+  }
+
+  const setPassword = async () => {
+    if (!pwModal || !newPw || newPw.length < 6) { toast.error('En az 6 karakter gerekli.'); return }
+    setPwLoading(true)
+    try {
+      const res = await fetch('/api/admin/set-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_password', user_id: pwModal.trainer.user_id, password: newPw }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('Şifre belirlendi.')
+      setPwModal(null); setNewPw('')
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Hata.') }
+    finally { setPwLoading(false) }
+  }
+
+  const sendResetEmail = async (t: Trainer) => {
+    const siteUrl = window.location.origin
+    const res = await fetch('/api/admin/set-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'send_reset', email: t.email, redirect_to: `${siteUrl}/trainer/reset-password` }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.error); return }
+    toast.success('Şifre sıfırlama maili gönderildi.')
   }
 
   const toggleActive = async (t: Trainer) => {
@@ -116,6 +146,14 @@ export default function TrainersManager({ trainers: init, locations }: Props) {
                 <button onClick={() => toggleActive(t)}>
                   {t.is_active ? <ToggleRight size={22} className="text-green-500" /> : <ToggleLeft size={22} className="text-gray-300" />}
                 </button>
+                <button onClick={() => { setPwModal({ trainer: t }); setNewPw('') }}
+                  title="Şifre Belirle" className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 transition-colors">
+                  <KeyRound size={15} />
+                </button>
+                <button onClick={() => sendResetEmail(t)}
+                  title="Sıfırlama Maili Gönder" className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-500 transition-colors">
+                  <Mail size={15} />
+                </button>
                 <button onClick={() => setDeleteConfirm(t.id)}
                   className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition-colors" title="Sil">
                   <Trash2 size={16} />
@@ -128,6 +166,31 @@ export default function TrainersManager({ trainers: init, locations }: Props) {
           )}
         </div>
       </div>
+
+      {/* Şifre belirleme modalı */}
+      {pwModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6">
+            <h3 className="font-bold text-[#1B2A4A] text-lg mb-1">Geçici Şifre Belirle</h3>
+            <p className="text-sm text-gray-500 mb-4">{pwModal.trainer.name} — {pwModal.trainer.email}</p>
+            <div className="mb-4">
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Yeni Şifre (en az 6 karakter)</label>
+              <input type="text" value={newPw} onChange={e => setNewPw(e.target.value)}
+                placeholder="geçici şifre girin"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
+            </div>
+            <p className="text-xs text-gray-400 mb-4">Bu şifreyi kullanıcıya bildirin. Giriş yaptıktan sonra "Şifremi unuttum" ile değiştirebilirler.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setPwModal(null)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold">İptal</button>
+              <button onClick={setPassword} disabled={pwLoading}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#FF6B35] text-white rounded-xl text-sm font-bold disabled:opacity-60">
+                {pwLoading ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
+                Kaydet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Silme onay modalı */}
       {deleteConfirm && (

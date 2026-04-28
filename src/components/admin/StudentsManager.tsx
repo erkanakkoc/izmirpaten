@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Plus, Loader2, ChevronDown, ChevronUp, Trash2, RefreshCw, History } from 'lucide-react'
+import { Plus, Loader2, ChevronDown, ChevronUp, Trash2, RefreshCw, History, KeyRound, Mail } from 'lucide-react'
 import type { Student, Trainer, Package, Enrollment, Lesson } from '@/types'
 import { formatDate } from '@/lib/utils'
 
@@ -53,10 +53,41 @@ export default function StudentsManager({ students, trainers, packages, enrollme
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [changeTrainerModal, setChangeTrainerModal] = useState<{ enrollmentId: string; requestId?: string; studentName: string } | null>(null)
+  const [pwModal, setPwModal] = useState<{ student: Student } | null>(null)
+  const [newPw, setNewPw] = useState('')
+  const [pwLoading, setPwLoading] = useState(false)
   const [newTrainerId, setNewTrainerId] = useState('')
   const [changeReason, setChangeReason] = useState('')
   const [changing, setChanging] = useState(false)
   const [form, setForm] = useState<InviteForm>({ full_name: '', email: '', phone: '', trainer_id: '', package_id: '', package_name: '', total_lessons: '' })
+
+  const setStudentPassword = async () => {
+    if (!pwModal || !newPw || newPw.length < 6) { toast.error('En az 6 karakter gerekli.'); return }
+    setPwLoading(true)
+    try {
+      // user_id bulmak için studentsManager'daki student verisini kullan
+      const res = await fetch('/api/admin/set-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_password', user_id: pwModal.student.user_id, password: newPw }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('Şifre belirlendi.')
+      setPwModal(null); setNewPw('')
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Hata.') }
+    finally { setPwLoading(false) }
+  }
+
+  const sendStudentResetEmail = async (s: Student) => {
+    const siteUrl = window.location.origin
+    const res = await fetch('/api/admin/set-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'send_reset', email: s.email, redirect_to: `${siteUrl}/student/reset-password` }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.error); return }
+    toast.success('Şifre sıfırlama maili gönderildi.')
+  }
 
   const getEnrollment = (studentId: string) => enrollments.find(e => e.student_id === studentId)
   const getStudentLessons = (studentId: string) => lessons.filter(l => l.student_id === studentId).sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime())
@@ -221,6 +252,14 @@ export default function StudentsManager({ students, trainers, packages, enrollme
                       <div className="text-xs text-gray-400">ders</div>
                     </div>
                   )}
+                  <button onClick={e => { e.stopPropagation(); setPwModal({ student }); setNewPw('') }}
+                    title="Şifre Belirle" className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 flex-shrink-0">
+                    <KeyRound size={15} />
+                  </button>
+                  <button onClick={e => { e.stopPropagation(); sendStudentResetEmail(student) }}
+                    title="Sıfırlama Maili Gönder" className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-500 flex-shrink-0">
+                    <Mail size={15} />
+                  </button>
                   <button onClick={e => { e.stopPropagation(); setDeleteConfirm(student.id) }}
                     className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 flex-shrink-0">
                     <Trash2 size={15} />
@@ -310,6 +349,31 @@ export default function StudentsManager({ students, trainers, packages, enrollme
           )}
         </div>
       </div>
+
+      {/* Öğrenci şifre belirleme modalı */}
+      {pwModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6">
+            <h3 className="font-bold text-[#1B2A4A] text-lg mb-1">Geçici Şifre Belirle</h3>
+            <p className="text-sm text-gray-500 mb-4">{pwModal.student.full_name} — {pwModal.student.email}</p>
+            <div className="mb-4">
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Yeni Şifre (en az 6 karakter)</label>
+              <input type="text" value={newPw} onChange={e => setNewPw(e.target.value)}
+                placeholder="geçici şifre girin"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]" />
+            </div>
+            <p className="text-xs text-gray-400 mb-4">Bu şifreyi öğrenciye bildirin. Giriş yaptıktan sonra "Şifremi unuttum" ile değiştirebilirler.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setPwModal(null)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold">İptal</button>
+              <button onClick={setStudentPassword} disabled={pwLoading}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#FF6B35] text-white rounded-xl text-sm font-bold disabled:opacity-60">
+                {pwLoading ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
+                Kaydet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Öğrenci silme onay modalı */}
       {deleteConfirm && (
