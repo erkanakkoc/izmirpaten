@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { getAdminPermissions } from '@/lib/admin-auth'
 import StatsCard from '@/components/admin/StatsCard'
 import { ClipboardList, Calendar, TrendingUp, Users } from 'lucide-react'
 import { formatDate, statusLabel, statusColor } from '@/lib/utils'
@@ -11,6 +13,10 @@ import DashboardCharts from '@/components/admin/DashboardCharts'
 export const revalidate = 0
 
 export default async function AdminDashboard() {
+  // Lokasyon kısıtlı kullanıcılar dashboard'a erişemez
+  const { locationFilter } = await getAdminPermissions()
+  if (locationFilter) redirect('/admin/applications')
+
   const supabase = await createClient()
 
   const now = new Date()

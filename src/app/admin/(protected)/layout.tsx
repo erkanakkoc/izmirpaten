@@ -12,7 +12,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   }
 
   const [{ data: allowed }, { data: settingsData }] = await Promise.all([
-    supabase.from('allowed_emails').select('email').eq('email', user.email).single(),
+    supabase.from('allowed_emails').select('email, location_filter').eq('email', user.email).single(),
     supabase.from('site_settings').select('key, value').in('key', ['site_title', 'logo_url', 'logo_height']),
   ])
 
@@ -21,6 +21,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   }
 
   const settings = Object.fromEntries((settingsData ?? []).map((s) => [s.key, s.value]))
+  const locationFilter = (allowed as { location_filter?: string | null }).location_filter ?? null
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -28,6 +29,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
         logoUrl={settings.logo_url ?? undefined}
         siteTitle={settings.site_title ?? undefined}
         logoHeight={settings.logo_height ? parseInt(settings.logo_height) : undefined}
+        locationFilter={locationFilter}
       />
       {/* pt-14 = mobil top bar yüksekliği */}
       <main className="flex-1 overflow-y-auto pt-14 md:pt-0">

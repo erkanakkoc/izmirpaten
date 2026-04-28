@@ -1,9 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { getAdminPermissions } from '@/lib/admin-auth'
 import MailClient from '@/components/admin/MailClient'
 
 export const revalidate = 0
 
 export default async function MailPage() {
+  const { locationFilter } = await getAdminPermissions()
+  if (locationFilter) redirect('/admin/applications')
+
   const supabase = await createClient()
 
   const [mailsRes, templateRes] = await Promise.all([

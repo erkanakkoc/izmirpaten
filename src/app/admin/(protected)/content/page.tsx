@@ -1,10 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { getAdminPermissions } from '@/lib/admin-auth'
 import { settingsArrayToObject } from '@/lib/utils'
 import ContentClient from '@/components/admin/ContentClient'
 
 export const revalidate = 0
 
 export default async function ContentPage() {
+  const { locationFilter } = await getAdminPermissions()
+  if (locationFilter) redirect('/admin/applications')
+
   const supabase = await createClient()
 
   const [settingsRes, packagesRes, locationsRes, featuresRes, infoCardsRes, galleryRes] = await Promise.all([

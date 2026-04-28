@@ -8,21 +8,25 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
-const navItems = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  { href: '/admin/applications', label: 'Başvurular', icon: ClipboardList },
-  { href: '/admin/reviews', label: 'Yorumlar', icon: Star },
-  { href: '/admin/mail', label: 'Mail Yönetimi', icon: Mail },
-  { href: '/admin/content', label: 'İçerik', icon: Settings },
+const ALL_NAV_ITEMS = [
+  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true, restrictedHide: true },
+  { href: '/admin/applications', label: 'Başvurular', icon: ClipboardList, exact: false, restrictedHide: false },
+  { href: '/admin/reviews', label: 'Yorumlar', icon: Star, exact: false, restrictedHide: true },
+  { href: '/admin/mail', label: 'Mail Yönetimi', icon: Mail, exact: false, restrictedHide: true },
+  { href: '/admin/content', label: 'İçerik', icon: Settings, exact: false, restrictedHide: true },
 ]
 
 interface SidebarProps {
   logoUrl?: string
   siteTitle?: string
   logoHeight?: number
+  locationFilter?: string | null
 }
 
-function SidebarContent({ logoUrl, siteTitle, logoHeight, onClose }: SidebarProps & { onClose?: () => void }) {
+function SidebarContent({ logoUrl, siteTitle, logoHeight, locationFilter, onClose }: SidebarProps & { onClose?: () => void }) {
+  const navItems = locationFilter
+    ? ALL_NAV_ITEMS.filter(item => !item.restrictedHide)
+    : ALL_NAV_ITEMS
   const pathname = usePathname()
   const router = useRouter()
 
@@ -83,6 +87,15 @@ function SidebarContent({ logoUrl, siteTitle, logoHeight, onClose }: SidebarProp
         })}
       </nav>
 
+      {/* Lokasyon kısıtı rozeti */}
+      {locationFilter && (
+        <div className="px-4 pb-2">
+          <div className="bg-amber-500/20 border border-amber-500/30 text-amber-200 text-xs font-semibold px-3 py-2 rounded-xl text-center">
+            📍 {locationFilter} Görünümü
+          </div>
+        </div>
+      )}
+
       {/* Logout */}
       <div className="px-3 py-4 border-t border-white/10">
         <button
@@ -97,14 +110,14 @@ function SidebarContent({ logoUrl, siteTitle, logoHeight, onClose }: SidebarProp
   )
 }
 
-export default function Sidebar({ logoUrl, siteTitle, logoHeight }: SidebarProps) {
+export default function Sidebar({ logoUrl, siteTitle, logoHeight, locationFilter }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
     <>
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-shrink-0 h-screen sticky top-0">
-        <SidebarContent logoUrl={logoUrl} siteTitle={siteTitle} logoHeight={logoHeight} />
+        <SidebarContent logoUrl={logoUrl} siteTitle={siteTitle} logoHeight={logoHeight} locationFilter={locationFilter} />
       </aside>
 
       {/* Mobile top bar */}
@@ -128,7 +141,7 @@ export default function Sidebar({ logoUrl, siteTitle, logoHeight }: SidebarProps
         <div className="md:hidden fixed inset-0 z-50 flex">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
           <div className="relative z-10 h-full">
-            <SidebarContent logoUrl={logoUrl} siteTitle={siteTitle} logoHeight={logoHeight} onClose={() => setMobileOpen(false)} />
+            <SidebarContent logoUrl={logoUrl} siteTitle={siteTitle} logoHeight={logoHeight} locationFilter={locationFilter} onClose={() => setMobileOpen(false)} />
           </div>
         </div>
       )}

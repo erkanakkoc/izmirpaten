@@ -1,9 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { getAdminPermissions } from '@/lib/admin-auth'
 import ReviewsManager from '@/components/admin/ReviewsManager'
 
 export const revalidate = 0
 
 export default async function ReviewsPage() {
+  const { locationFilter } = await getAdminPermissions()
+  if (locationFilter) redirect('/admin/applications')
+
   const supabase = await createClient()
   const { data: reviews } = await supabase
     .from('reviews')
