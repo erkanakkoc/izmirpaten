@@ -41,8 +41,10 @@ export default function BookLesson({ studentId, enrollment }: Props) {
 
   const trainerId = enrollment?.trainer_id
 
+  const disciplineId = enrollment?.discipline_id
+
   const fetchSlots = useCallback(async () => {
-    if (!trainerId) return
+    if (!trainerId || !disciplineId) return
     setLoading(true)
     const supabase = createClient()
     const from = `${year}-${String(month + 1).padStart(2, '0')}-01`
@@ -52,12 +54,13 @@ export default function BookLesson({ studentId, enrollment }: Props) {
       .from('trainer_slots')
       .select('id, slot_date, slot_hour, is_booked')
       .eq('trainer_id', trainerId)
+      .eq('discipline_id', disciplineId)
       .gte('slot_date', from)
       .lte('slot_date', to)
       .gte('slot_date', toDateStr(today)) // Geçmiş tarihleri gösterme
     setSlots(data ?? [])
     setLoading(false)
-  }, [trainerId, year, month])
+  }, [trainerId, disciplineId, year, month])
 
   useEffect(() => { fetchSlots() }, [fetchSlots])
 
@@ -80,7 +83,10 @@ export default function BookLesson({ studentId, enrollment }: Props) {
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      if (!res.ok) {
+        if (res.status === 409) { fetchSlots(); setSelectedSlot(null) }
+        throw new Error(data.error)
+      }
       setBooked(true)
       setSlots(p => p.map(s => s.id === selectedSlot.id ? { ...s, is_booked: true } : s))
       toast.success('Ders talebiniz gönderildi! Eğitmeninizin onayını bekleyin.')

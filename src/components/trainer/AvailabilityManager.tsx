@@ -4,12 +4,13 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import type { Discipline } from '@/types'
 
 const HOURS = Array.from({ length: 15 }, (_, i) => i + 8) // 08:00 – 22:00
 const DAYS_SHORT = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt']
 const MONTHS_TR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
 
-interface Slot { id: string; slot_date: string; slot_hour: number; is_booked: boolean }
+interface Slot { id: string; slot_date: string; slot_hour: number; is_booked: boolean; discipline_id: string }
 
 function toDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -22,18 +23,20 @@ function getDaysInMonth(year: number, month: number): Date[] {
   return days
 }
 
-interface Props { trainerId: string }
+interface Props { trainerId: string; disciplines: Discipline[] }
 
-export default function AvailabilityManager({ trainerId }: Props) {
+export default function AvailabilityManager({ trainerId, disciplines }: Props) {
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
+  const [disciplineId, setDisciplineId] = useState<string>(disciplines[0]?.id ?? '')
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [slots, setSlots] = useState<Slot[]>([])
   const [loading, setLoading] = useState(false)
   const [toggling, setToggling] = useState<string | null>(null)
 
   const fetchSlots = useCallback(async () => {
+    if (!disciplineId) return
     setLoading(true)
     const supabase = createClient()
     const from = `${year}-${String(month + 1).padStart(2, '0')}-01`
@@ -41,13 +44,14 @@ export default function AvailabilityManager({ trainerId }: Props) {
     const to = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     const { data } = await supabase
       .from('trainer_slots')
-      .select('id, slot_date, slot_hour, is_booked')
+      .select('id, slot_date, slot_hour, is_booked, discipline_id')
       .eq('trainer_id', trainerId)
+      .eq('discipline_id', disciplineId)
       .gte('slot_date', from)
       .lte('slot_date', to)
     setSlots(data ?? [])
     setLoading(false)
-  }, [trainerId, year, month])
+  }, [trainerId, disciplineId, year, month])
 
   useEffect(() => { fetchSlots() }, [fetchSlots])
 
@@ -64,7 +68,7 @@ export default function AvailabilityManager({ trainerId }: Props) {
       setSlots(p => p.filter(s => s.id !== existing.id))
     } else {
       const { data, error } = await supabase.from('trainer_slots').insert({
-        trainer_id: trainerId, slot_date: date, slot_hour: hour, is_booked: false,
+        trainer_id: trainerId, slot_date: date, slot_hour: hour, is_booked: false, discipline_id: disciplineId,
       }).select().single()
       if (error) { toast.error('Eklenemedi.'); setToggling(null); return }
       setSlots(p => [...p, data])
@@ -78,7 +82,7 @@ export default function AvailabilityManager({ trainerId }: Props) {
     const daySlots = slots.filter(s => s.slot_date === date && !s.is_booked)
     if (daySlots.length === HOURS.length) {
       // Hepsini sil
-      await supabase.from('trainer_slots').delete().eq('trainer_id', trainerId).eq('slot_date', date).eq('is_booked', false)
+      await supabase.from('trainer_slots').delete().eq('trainer_id', trainerId).eq('discipline_id', disciplineId).eq('slot_date', date).eq('is_booked', false)
       setSlots(p => p.filter(s => s.slot_date !== date || s.is_booked))
       toast.success('Gün temizlendi.')
     } else {
@@ -87,7 +91,7 @@ export default function AvailabilityManager({ trainerId }: Props) {
       const missing = HOURS.filter(h => !existingHours.has(h))
       if (missing.length === 0) return
       const { data, error } = await supabase.from('trainer_slots').insert(
-        missing.map(h => ({ trainer_id: trainerId, slot_date: date, slot_hour: h, is_booked: false }))
+        missing.map(h => ({ trainer_id: trainerId, slot_date: date, slot_hour: h, is_booked: false, discipline_id: disciplineId }))
       ).select()
       if (error) { toast.error('Eklenemedi.'); return }
       setSlots(p => [...p, ...(data ?? [])])
@@ -107,8 +111,34 @@ export default function AvailabilityManager({ trainerId }: Props) {
 
   const selectedSlots = selectedDate ? slots.filter(s => s.slot_date === selectedDate) : []
 
+  if (disciplines.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400">
+        Henüz size atanmış bir branş yok. Lütfen yönetici ile iletişime geçin.
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-5">
+      {disciplines.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {disciplines.map((d) => (
+            <button
+              key={d.id}
+              onClick={() => { setDisciplineId(d.id); setSelectedDate(null) }}
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all border-2 ${
+                disciplineId === d.id
+                  ? 'bg-[#FF6B35] border-[#FF6B35] text-white'
+                  : 'bg-white border-gray-200 text-gray-500 hover:border-orange-200'
+              }`}
+            >
+              {d.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {/* Takvim başlığı */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">

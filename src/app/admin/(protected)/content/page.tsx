@@ -12,13 +12,15 @@ export default async function ContentPage() {
 
   const supabase = await createClient()
 
-  const [settingsRes, packagesRes, locationsRes, featuresRes, infoCardsRes, galleryRes] = await Promise.all([
+  const [settingsRes, packagesRes, locationsRes, featuresRes, infoCardsRes, galleryRes, disciplinesRes, locationDisciplinesRes] = await Promise.all([
     supabase.from('site_settings').select('*'),
     supabase.from('packages').select('*').order('sort_order'),
     supabase.from('locations').select('*'),
     supabase.from('features').select('*').order('sort_order'),
     supabase.from('info_cards').select('*').order('sort_order'),
     supabase.from('gallery_images').select('*').order('sort_order'),
+    supabase.from('disciplines').select('*').order('sort_order'),
+    supabase.from('location_disciplines').select('*'),
   ])
 
   const settings = settingsArrayToObject(settingsRes.data ?? [])
@@ -36,6 +38,8 @@ export default async function ContentPage() {
         features={featuresRes.data ?? []}
         infoCards={infoCardsRes.data ?? []}
         galleryImages={galleryRes.data ?? []}
+        disciplines={disciplinesRes.data ?? []}
+        locationDisciplines={locationDisciplinesRes.data ?? []}
       />
     </div>
   )

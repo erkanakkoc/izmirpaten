@@ -12,6 +12,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
 
     const {
+      discipline_id,
+      group_session_id,
       full_name,
       phone,
       email,
@@ -32,18 +34,56 @@ export async function POST(request: NextRequest) {
     if (!full_name || !phone) {
       return NextResponse.json({ error: 'Ad soyad ve telefon zorunludur.' }, { status: 400 })
     }
-    if (!package_name) {
-      return NextResponse.json({ error: 'Lütfen bir paket seçin.' }, { status: 400 })
-    }
-    if (!location_name) {
-      return NextResponse.json({ error: 'Lütfen bir lokasyon seçin.' }, { status: 400 })
+    if (!discipline_id) {
+      return NextResponse.json({ error: 'Lütfen bir branş seçin.' }, { status: 400 })
     }
 
     const supabase = await createServiceClient()
 
+    let finalPackageId: string | null = package_id || null
+    let finalPackageName = package_name
+    let finalLocationId: string | null = location_id || null
+    let finalLocationName = location_name
+
+    if (group_session_id) {
+      // Grup dersi başvurusu: paket/lokasyon bilgisi grup oturumundan türetilir
+      const { data: session } = await supabase
+        .from('group_sessions')
+        .select('*, locations(name, venue)')
+        .eq('id', group_session_id)
+        .eq('status', 'open')
+        .eq('discipline_id', discipline_id)
+        .single()
+      if (!session) {
+        return NextResponse.json({ error: 'Seçtiğiniz grup dersi saati artık geçerli değil, lütfen tekrar seçin.' }, { status: 409 })
+      }
+      const { count: approvedCount } = await supabase
+        .from('group_session_participants')
+        .select('id', { count: 'exact', head: true })
+        .eq('group_session_id', group_session_id)
+        .eq('status', 'approved')
+      if ((approvedCount ?? 0) >= session.max_participants) {
+        return NextResponse.json({ error: 'Bu grup dersinin kontenjanı dolmuş, lütfen başka bir saat seçin.' }, { status: 409 })
+      }
+      const loc = session.locations as { name: string; venue: string } | null
+      finalPackageId = null
+      finalPackageName = `Grup Dersi — ${new Date(session.session_date + 'T12:00:00').toLocaleDateString('tr-TR')} ${String(session.slot_hour).padStart(2, '0')}:00`
+      finalLocationId = session.location_id
+      finalLocationName = loc ? `${loc.name} – ${loc.venue}` : 'Lokasyon'
+    } else {
+      if (!finalPackageName) {
+        return NextResponse.json({ error: 'Lütfen bir paket seçin.' }, { status: 400 })
+      }
+      if (!finalLocationName) {
+        return NextResponse.json({ error: 'Lütfen bir lokasyon seçin.' }, { status: 400 })
+      }
+    }
+
     const { data: application, error: insertError } = await supabase
       .from('applications')
       .insert({
+        discipline_id,
+        group_session_id: group_session_id || null,
         full_name,
         phone,
         email: email || null,
@@ -51,10 +91,10 @@ export async function POST(request: NextRequest) {
         is_for_self: is_for_self ?? true,
         student_name: student_name || null,
         student_age: student_age || null,
-        package_id: package_id || null,
-        package_name,
-        location_id: location_id || null,
-        location_name,
+        package_id: finalPackageId,
+        package_name: finalPackageName,
+        location_id: finalLocationId,
+        location_name: finalLocationName,
         available_days: available_days?.length ? available_days : null,
         available_hours: available_hours || null,
         notes: notes || null,
@@ -69,22 +109,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Başvuru kaydedilemedi.' }, { status: 500 })
     }
 
-    const { data: templateSetting } = await supabase
-      .from('site_settings')
-      .select('value')
-      .eq('key', 'admin_email_template')
-      .single()
+    const [{ data: templateSetting }, { data: discipline }] = await Promise.all([
+      supabase.from('site_settings').select('value').eq('key', 'admin_email_template').single(),
+      supabase.from('disciplines').select('name').eq('id', discipline_id).single(),
+    ])
+    const disciplineName = discipline?.name ?? '—'
 
     const adminEmail = process.env.ADMIN_EMAIL
     const resend = getResend()
     if (adminEmail && resend) {
       const templateHtml = buildEmailHtml(templateSetting?.value, {
+        discipline_name: disciplineName,
         full_name,
         phone,
         email: email || '—',
         age: age?.toString() || '—',
-        package_name,
-        location_name,
+        package_name: finalPackageName,
+        location_name: finalLocationName,
         available_days: available_days?.join(', ') || '—',
         available_hours: available_hours || '—',
         notes: notes || '—',
@@ -97,7 +138,7 @@ export async function POST(request: NextRequest) {
         await resend.emails.send({
           from: 'Paten İzmir <noreply@patenizmir.com>',
           to: adminEmail,
-          subject: `🛼 Yeni Başvuru: ${full_name} – ${package_name}`,
+          subject: `🛼 Yeni Başvuru (${disciplineName}): ${full_name} – ${finalPackageName}`,
           html: templateHtml,
         })
 
@@ -105,7 +146,7 @@ export async function POST(request: NextRequest) {
           application_id: application.id,
           applicant_name: full_name,
           applicant_email: email || null,
-          subject: `Yeni Başvuru: ${full_name} – ${package_name}`,
+          subject: `Yeni Başvuru: ${full_name} – ${finalPackageName}`,
           status: 'sent',
         })
       } catch (mailError) {
@@ -134,6 +175,7 @@ function buildEmailHtml(template: string | null | undefined, vars: Record<string
       <tr><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#888">E-posta</td><td style="padding:8px 0;border-bottom:1px solid #f0f0f0">{{email}}</td></tr>
       <tr><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#888">Yaş</td><td style="padding:8px 0;border-bottom:1px solid #f0f0f0">{{age}}</td></tr>
       <tr><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#888">Öğrenci</td><td style="padding:8px 0;border-bottom:1px solid #f0f0f0">{{student_name}} ({{student_age}})</td></tr>
+      <tr><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#888">Branş</td><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;font-weight:bold">{{discipline_name}}</td></tr>
       <tr><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#888">Paket</td><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#FF6B35;font-weight:bold">{{package_name}}</td></tr>
       <tr><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#888">Lokasyon</td><td style="padding:8px 0;border-bottom:1px solid #f0f0f0">{{location_name}}</td></tr>
       <tr><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#888">Müsait Günler</td><td style="padding:8px 0;border-bottom:1px solid #f0f0f0">{{available_days}}</td></tr>

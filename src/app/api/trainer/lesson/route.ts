@@ -14,8 +14,9 @@ export async function POST(req: NextRequest) {
   const { data: trainer } = await service.from('trainers').select('id, name').eq('user_id', user.id).single()
   if (!trainer) return NextResponse.json({ error: 'Eğitmen bulunamadı.' }, { status: 403 })
 
-  const { data: lesson } = await service.from('lessons').select('*, students(full_name)').eq('id', lesson_id).eq('trainer_id', trainer.id).single()
+  const { data: lesson } = await service.from('lessons').select('*, students(full_name), disciplines(name)').eq('id', lesson_id).eq('trainer_id', trainer.id).single()
   if (!lesson) return NextResponse.json({ error: 'Ders bulunamadı.' }, { status: 404 })
+  const disciplineName = (lesson.disciplines as { name: string } | null)?.name ?? 'Ders'
 
   if (action === 'approve') {
     await service.from('lessons').update({ status: 'approved', trainer_note: trainer_note || null }).eq('id', lesson_id)
@@ -24,19 +25,19 @@ export async function POST(req: NextRequest) {
       type: 'lesson_approved', target_role: 'student',
       target_user_id: lesson.student_id,
       title: 'Dersiniz onaylandı! ✅',
-      message: `${trainer.name} dersinizi onayladı.`,
+      message: `${trainer.name} ${disciplineName} dersinizi onayladı.`,
       link: '/student',
     })
   } else if (action === 'reject') {
     await service.from('lessons').update({ status: 'cancelled', trainer_note: trainer_note || null }).eq('id', lesson_id)
-    // Slot'u tekrar müsait yap
-    await service.from('trainer_slots').update({ is_booked: false, lesson_id: null }).eq('lesson_id', lesson_id)
+    // is_booked, DB trigger tarafından otomatik senkronlanır (tüm branşlar için). Burada sadece FK bağını temizliyoruz.
+    await service.from('trainer_slots').update({ lesson_id: null }).eq('lesson_id', lesson_id)
 
     await service.from('notifications').insert({
       type: 'lesson_rejected', target_role: 'student',
       target_user_id: lesson.student_id,
       title: 'Ders talebi reddedildi',
-      message: trainer_note || 'Bu zaman dilimi uygun değil, lütfen başka bir zaman seçin.',
+      message: trainer_note || `${disciplineName} için bu zaman dilimi uygun değil, lütfen başka bir zaman seçin.`,
       link: '/student/book',
     })
   } else if (action === 'complete') {
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
           type: 'package_expiring', target_role: 'student',
           target_user_id: lesson.student_id,
           title: '⚠️ Son 1 ders hakkınız kaldı!',
-          message: 'Paketinizi yenilemek ister misiniz?',
+          message: `${disciplineName} paketinizi yenilemek ister misiniz?`,
           link: '/student/package',
         })
       }
