@@ -1,16 +1,35 @@
 'use client'
 
+import { useState, useEffect, useMemo } from 'react'
 import { Check, Star } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
-import type { Package } from '@/types'
+import type { Package, Discipline } from '@/types'
 import { cn } from '@/lib/utils'
 
 interface PackagesSectionProps {
   packages: Package[]
+  disciplines: Discipline[]
   prerequisiteNote?: string
 }
 
-export default function PackagesSection({ packages, prerequisiteNote }: PackagesSectionProps) {
+export default function PackagesSection({ packages, disciplines, prerequisiteNote }: PackagesSectionProps) {
+  const [activeDisciplineId, setActiveDisciplineId] = useState<string>(disciplines[0]?.id ?? '')
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { id } = (e as CustomEvent<{ id: string }>).detail
+      setActiveDisciplineId(id)
+    }
+    window.addEventListener('selectDiscipline', handler)
+    return () => window.removeEventListener('selectDiscipline', handler)
+  }, [])
+
+  const activeDiscipline = disciplines.find((d) => d.id === activeDisciplineId)
+  const visiblePackages = useMemo(
+    () => disciplines.length > 1 ? packages.filter((p) => p.discipline_id === activeDisciplineId) : packages,
+    [packages, disciplines, activeDisciplineId]
+  )
+
   const handleApply = (pkgId?: string, pkgName?: string) => {
     if (pkgId && pkgName) {
       window.dispatchEvent(new CustomEvent('selectPackage', { detail: { id: pkgId, name: pkgName } }))
@@ -21,7 +40,8 @@ export default function PackagesSection({ packages, prerequisiteNote }: Packages
   const isMiniGroup = (name: string) => name.toLowerCase().includes('mini grup')
 
   const getFeatures = (pkg: Package): string[] => {
-    const base = ['40 dakika ders', 'Profesyonel eğitim', 'Bostanlı veya Göztepe']
+    const duration = activeDiscipline?.lesson_duration_minutes ?? 40
+    const base = [`${duration} dakika ders`, 'Profesyonel eğitim']
     if (pkg.name.includes('Birebir')) return ['Birebir özel ilgi', ...base]
     if (pkg.name.includes('Grup')) return ['Grup dinamiği', ...base, 'Sosyal ortam']
     if (isMiniGroup(pkg.name)) return ['Kendi grubunla gel', 'En az 2 kişi', ...base]
@@ -37,9 +57,46 @@ export default function PackagesSection({ packages, prerequisiteNote }: Packages
           </span>
           <h2 className="text-4xl font-extrabold text-[#1B2A4A] mb-4">Paketler & Fiyatlar</h2>
           <p className="text-gray-500 max-w-xl mx-auto">
-            Sana en uygun paketi seç, hemen başvur. Tüm paketler 40 dakikalık derslerden oluşur.
+            Sana en uygun paketi seç, hemen başvur.
           </p>
         </div>
+
+        {/* Branş sekmeleri — birden fazla aktif branş varsa */}
+        {disciplines.length > 1 && (
+          <div className="flex flex-wrap justify-center gap-2 mb-8">
+            {disciplines.map((d) => (
+              <button
+                key={d.id}
+                onClick={() => setActiveDisciplineId(d.id)}
+                className={cn(
+                  'px-5 py-2.5 rounded-full text-sm font-bold transition-all border-2',
+                  activeDisciplineId === d.id
+                    ? 'bg-[#FF6B35] border-[#FF6B35] text-white'
+                    : 'bg-white border-gray-200 text-gray-500 hover:border-orange-200'
+                )}
+              >
+                {d.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Seçili branşın ders süresi / grup büyüklüğü / ekipman notu */}
+        {activeDiscipline && (
+          <div className="flex flex-wrap justify-center gap-3 mb-10 text-sm">
+            <span className="px-4 py-2 bg-white rounded-full border border-gray-200 text-gray-600 font-semibold">
+              ⏱ {activeDiscipline.lesson_duration_minutes} dakika ders
+            </span>
+            <span className="px-4 py-2 bg-white rounded-full border border-gray-200 text-gray-600 font-semibold">
+              👥 Max {activeDiscipline.max_group_size} kişilik grup
+            </span>
+            {activeDiscipline.equipment_note && (
+              <span className="px-4 py-2 bg-white rounded-full border border-gray-200 text-gray-600 font-semibold">
+                🎒 {activeDiscipline.equipment_note}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Grup dersi ön koşul notu */}
         {prerequisiteNote && (
@@ -50,7 +107,7 @@ export default function PackagesSection({ packages, prerequisiteNote }: Packages
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {packages.map((pkg, i) => (
+          {visiblePackages.map((pkg, i) => (
             <div
               key={pkg.id}
               className={cn(

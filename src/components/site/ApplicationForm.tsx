@@ -2,23 +2,27 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
-import type { Package, Location, Discipline, LocationDiscipline } from '@/types'
+import type { Package, Location, Discipline, LocationDiscipline, OpenGroupSession } from '@/types'
 
 interface ApplicationFormProps {
   packages: Package[]
   locations: Location[]
   disciplines: Discipline[]
   locationDisciplines: LocationDiscipline[]
+  openGroupSessions: OpenGroupSession[]
   kvkkUrl?: string
 }
 
 const DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
+const MONTHS_TR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
 
-export default function ApplicationForm({ packages, locations, disciplines, locationDisciplines, kvkkUrl }: ApplicationFormProps) {
+export default function ApplicationForm({ packages, locations, disciplines, locationDisciplines, openGroupSessions, kvkkUrl }: ApplicationFormProps) {
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [isForOther, setIsForOther] = useState(false)
   const [selectedDays, setSelectedDays] = useState<string[]>([])
+  const [mode, setMode] = useState<'individual' | 'group'>('individual')
+  const [groupSessionId, setGroupSessionId] = useState('')
 
   const [form, setForm] = useState({
     discipline_id: disciplines.length === 1 ? disciplines[0].id : '',
@@ -51,8 +55,20 @@ export default function ApplicationForm({ packages, locations, disciplines, loca
     return locations.filter((l) => allowedIds.has(l.id))
   }, [locations, locationDisciplines, form.discipline_id])
 
+  const groupSessionsForDiscipline = useMemo(
+    () => openGroupSessions.filter((s) => s.discipline_id === form.discipline_id),
+    [openGroupSessions, form.discipline_id]
+  )
+
   const handleDisciplineChange = (id: string) => {
     setForm((p) => ({ ...p, discipline_id: id, package_id: '', package_name: '', location_id: '', location_name: '' }))
+    setGroupSessionId('')
+    setMode('individual')
+  }
+
+  const formatSessionLabel = (s: OpenGroupSession) => {
+    const d = new Date(s.session_date + 'T12:00:00')
+    return `${d.getDate()} ${MONTHS_TR[d.getMonth()]} — ${String(s.slot_hour).padStart(2, '0')}:00 — ${s.location_name} (${s.remaining} kontenjan)`
   }
 
   useEffect(() => {
@@ -88,6 +104,14 @@ export default function ApplicationForm({ packages, locations, disciplines, loca
       toast.error('Lütfen bir branş seçin.')
       return
     }
+    if (mode === 'group' && !groupSessionId) {
+      toast.error('Lütfen bir grup dersi saati seçin.')
+      return
+    }
+    if (mode === 'individual' && (!form.package_id || !form.location_id)) {
+      toast.error('Lütfen paket ve lokasyon seçin.')
+      return
+    }
     if (!form.kvkk) {
       toast.error('Lütfen KVKK metnini onaylayın.')
       return
@@ -100,6 +124,7 @@ export default function ApplicationForm({ packages, locations, disciplines, loca
         age: form.age ? parseInt(form.age) : null,
         student_age: form.student_age ? parseInt(form.student_age) : null,
         available_days: selectedDays,
+        group_session_id: mode === 'group' ? groupSessionId : null,
       }
       const res = await fetch('/api/apply', {
         method: 'POST',
@@ -283,45 +308,82 @@ export default function ApplicationForm({ packages, locations, disciplines, loca
             </div>
           )}
 
-          {/* Paket & Lokasyon */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Bireysel / Grup dersi seçimi — yalnızca seçili branşta açık grup oturumu varsa gösterilir */}
+          {form.discipline_id && groupSessionsForDiscipline.length > 0 && (
+            <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+              <button type="button" onClick={() => setMode('individual')}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${mode === 'individual' ? 'bg-white text-[#FF6B35] shadow-sm' : 'text-gray-500'}`}>
+                Bireysel Ders
+              </button>
+              <button type="button" onClick={() => setMode('group')}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${mode === 'group' ? 'bg-white text-[#FF6B35] shadow-sm' : 'text-gray-500'}`}>
+                Grup Dersi
+              </button>
+            </div>
+          )}
+
+          {/* Grup dersi: açık oturum seçimi */}
+          {mode === 'group' && (
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                Tercih Ettiğin Paket
+                Grup Dersi Saati <span className="text-red-500">*</span>
               </label>
               <select
-                value={form.package_id}
-                onChange={(e) => handlePackageChange(e.target.value)}
-                disabled={!form.discipline_id}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] focus:ring-2 focus:ring-orange-100 transition-all text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400"
+                required
+                value={groupSessionId}
+                onChange={(e) => setGroupSessionId(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] focus:ring-2 focus:ring-orange-100 transition-all text-sm bg-white"
               >
-                <option value="">Paket seçin</option>
-                {packagesForDiscipline.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
+                <option value="">Saat seçin</option>
+                {groupSessionsForDiscipline.map((s) => (
+                  <option key={s.id} value={s.id}>{formatSessionLabel(s)}</option>
                 ))}
               </select>
+              <p className="text-xs text-gray-400 mt-1.5">Başvurunuz admin tarafından değerlendirilip onaylanacaktır.</p>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                Tercih Ettiğin Lokasyon
-              </label>
-              <select
-                value={form.location_id}
-                onChange={(e) => handleLocationChange(e.target.value)}
-                disabled={!form.discipline_id}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] focus:ring-2 focus:ring-orange-100 transition-all text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400"
-              >
-                <option value="">Lokasyon seçin</option>
-                {locationsForDiscipline.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name} – {l.venue}
-                  </option>
-                ))}
-              </select>
+          )}
+
+          {/* Bireysel: Paket & Lokasyon */}
+          {mode === 'individual' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Tercih Ettiğin Paket
+                </label>
+                <select
+                  value={form.package_id}
+                  onChange={(e) => handlePackageChange(e.target.value)}
+                  disabled={!form.discipline_id}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] focus:ring-2 focus:ring-orange-100 transition-all text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400"
+                >
+                  <option value="">Paket seçin</option>
+                  {packagesForDiscipline.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Tercih Ettiğin Lokasyon
+                </label>
+                <select
+                  value={form.location_id}
+                  onChange={(e) => handleLocationChange(e.target.value)}
+                  disabled={!form.discipline_id}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] focus:ring-2 focus:ring-orange-100 transition-all text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400"
+                >
+                  <option value="">Lokasyon seçin</option>
+                  {locationsForDiscipline.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name} – {l.venue}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Müsait günler */}
           <div>

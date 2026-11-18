@@ -1,11 +1,19 @@
 import { MapPin, Clock, Calendar } from 'lucide-react'
-import type { Location } from '@/types'
+import type { Location, Discipline, LocationDiscipline } from '@/types'
 
 interface LocationsSectionProps {
   locations: Location[]
+  disciplines: Discipline[]
+  locationDisciplines: LocationDiscipline[]
 }
 
-export default function LocationsSection({ locations }: LocationsSectionProps) {
+export default function LocationsSection({ locations, disciplines, locationDisciplines }: LocationsSectionProps) {
+  const disciplineNamesFor = (locationId: string) =>
+    locationDisciplines
+      .filter((ld) => ld.location_id === locationId)
+      .map((ld) => disciplines.find((d) => d.id === ld.discipline_id)?.name)
+      .filter(Boolean) as string[]
+
   return (
     <section id="lokasyonlar" className="py-24 bg-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
@@ -58,10 +66,17 @@ export default function LocationsSection({ locations }: LocationsSectionProps) {
               {/* Info */}
               <div className="p-7">
                 <h3 className="text-xl font-extrabold text-[#1B2A4A] mb-1">{loc.name}</h3>
-                <div className="flex items-center gap-1.5 text-gray-500 text-sm mb-5">
+                <div className="flex items-center gap-1.5 text-gray-500 text-sm mb-3">
                   <MapPin size={14} className="text-[#FF6B35]" />
                   {loc.venue}
                 </div>
+                {disciplines.length > 1 && (
+                  <div className="flex flex-wrap gap-1.5 mb-5">
+                    {disciplineNamesFor(loc.id).map((name) => (
+                      <span key={name} className="text-xs bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full font-semibold">{name}</span>
+                    ))}
+                  </div>
+                )}
 
                 <div className="space-y-3">
                   {loc.weekday_hours && (

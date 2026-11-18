@@ -50,6 +50,16 @@ export interface GroupSession {
   created_at: string
 }
 
+export interface OpenGroupSession {
+  id: string
+  discipline_id: string
+  location_id: string
+  location_name: string
+  session_date: string
+  slot_hour: number
+  remaining: number
+}
+
 export interface GroupSessionParticipant {
   id: string
   group_session_id: string
