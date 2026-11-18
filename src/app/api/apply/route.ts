@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
 
     const {
+      discipline_id,
       full_name,
       phone,
       email,
@@ -32,6 +33,9 @@ export async function POST(request: NextRequest) {
     if (!full_name || !phone) {
       return NextResponse.json({ error: 'Ad soyad ve telefon zorunludur.' }, { status: 400 })
     }
+    if (!discipline_id) {
+      return NextResponse.json({ error: 'Lütfen bir branş seçin.' }, { status: 400 })
+    }
     if (!package_name) {
       return NextResponse.json({ error: 'Lütfen bir paket seçin.' }, { status: 400 })
     }
@@ -44,6 +48,7 @@ export async function POST(request: NextRequest) {
     const { data: application, error: insertError } = await supabase
       .from('applications')
       .insert({
+        discipline_id,
         full_name,
         phone,
         email: email || null,
@@ -69,16 +74,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Başvuru kaydedilemedi.' }, { status: 500 })
     }
 
-    const { data: templateSetting } = await supabase
-      .from('site_settings')
-      .select('value')
-      .eq('key', 'admin_email_template')
-      .single()
+    const [{ data: templateSetting }, { data: discipline }] = await Promise.all([
+      supabase.from('site_settings').select('value').eq('key', 'admin_email_template').single(),
+      supabase.from('disciplines').select('name').eq('id', discipline_id).single(),
+    ])
+    const disciplineName = discipline?.name ?? '—'
 
     const adminEmail = process.env.ADMIN_EMAIL
     const resend = getResend()
     if (adminEmail && resend) {
       const templateHtml = buildEmailHtml(templateSetting?.value, {
+        discipline_name: disciplineName,
         full_name,
         phone,
         email: email || '—',
@@ -97,7 +103,7 @@ export async function POST(request: NextRequest) {
         await resend.emails.send({
           from: 'Paten İzmir <noreply@patenizmir.com>',
           to: adminEmail,
-          subject: `🛼 Yeni Başvuru: ${full_name} – ${package_name}`,
+          subject: `🛼 Yeni Başvuru (${disciplineName}): ${full_name} – ${package_name}`,
           html: templateHtml,
         })
 
@@ -134,6 +140,7 @@ function buildEmailHtml(template: string | null | undefined, vars: Record<string
       <tr><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#888">E-posta</td><td style="padding:8px 0;border-bottom:1px solid #f0f0f0">{{email}}</td></tr>
       <tr><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#888">Yaş</td><td style="padding:8px 0;border-bottom:1px solid #f0f0f0">{{age}}</td></tr>
       <tr><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#888">Öğrenci</td><td style="padding:8px 0;border-bottom:1px solid #f0f0f0">{{student_name}} ({{student_age}})</td></tr>
+      <tr><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#888">Branş</td><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;font-weight:bold">{{discipline_name}}</td></tr>
       <tr><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#888">Paket</td><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#FF6B35;font-weight:bold">{{package_name}}</td></tr>
       <tr><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#888">Lokasyon</td><td style="padding:8px 0;border-bottom:1px solid #f0f0f0">{{location_name}}</td></tr>
       <tr><td style="padding:8px 0;border-bottom:1px solid #f0f0f0;color:#888">Müsait Günler</td><td style="padding:8px 0;border-bottom:1px solid #f0f0f0">{{available_days}}</td></tr>

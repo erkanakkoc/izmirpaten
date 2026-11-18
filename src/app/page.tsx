@@ -10,7 +10,7 @@ import ReviewsSection from '@/components/site/ReviewsSection'
 import GallerySection from '@/components/site/GallerySection'
 import InstagramSection from '@/components/site/InstagramSection'
 import Footer from '@/components/site/Footer'
-import type { Package, Location, Feature, InfoCard, SiteSettings, Review, GalleryImage } from '@/types'
+import type { Package, Location, Feature, InfoCard, SiteSettings, Review, GalleryImage, Discipline, LocationDiscipline } from '@/types'
 
 export const revalidate = 60
 
@@ -22,10 +22,12 @@ export default async function Home() {
   let infoCards: InfoCard[] = []
   let reviews: Review[] = []
   let galleryImages: GalleryImage[] = []
+  let disciplines: Discipline[] = []
+  let locationDisciplines: LocationDiscipline[] = []
 
   try {
     const supabase = await createClient()
-    const [settingsRes, packagesRes, locationsRes, featuresRes, infoCardsRes, reviewsRes, galleryRes] = await Promise.all([
+    const [settingsRes, packagesRes, locationsRes, featuresRes, infoCardsRes, reviewsRes, galleryRes, disciplinesRes, locationDisciplinesRes] = await Promise.all([
       supabase.from('site_settings').select('*'),
       supabase.from('packages').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('locations').select('*').eq('is_active', true),
@@ -33,9 +35,15 @@ export default async function Home() {
       supabase.from('info_cards').select('*').order('sort_order'),
       supabase.from('reviews').select('*').eq('is_approved', true).order('created_at', { ascending: false }),
       supabase.from('gallery_images').select('*').eq('is_active', true).order('sort_order'),
+      supabase.from('disciplines').select('*').eq('is_active', true).order('sort_order'),
+      supabase.from('location_disciplines').select('*'),
     ])
     settings = settingsArrayToObject(settingsRes.data ?? [])
-    packages = packagesRes.data ?? []
+    disciplines = disciplinesRes.data ?? []
+    locationDisciplines = locationDisciplinesRes.data ?? []
+    const activeDisciplineIds = new Set(disciplines.map((d) => d.id))
+    // Pasif bir branşa ait paket aktif olsa bile sitede görünmesin
+    packages = (packagesRes.data ?? []).filter((p) => activeDisciplineIds.has(p.discipline_id))
     locations = locationsRes.data ?? []
     features = featuresRes.data ?? []
     infoCards = infoCardsRes.data ?? []
@@ -66,7 +74,13 @@ export default async function Home() {
       {settings.instagram_show_section === 'true' && (
         <InstagramSection instagramUrl={settings.instagram_url} />
       )}
-      <ApplicationForm packages={packages} locations={locations} kvkkUrl={settings.kvkk_url} />
+      <ApplicationForm
+        packages={packages}
+        locations={locations}
+        disciplines={disciplines}
+        locationDisciplines={locationDisciplines}
+        kvkkUrl={settings.kvkk_url}
+      />
       <Footer settings={settings} />
     </main>
   )

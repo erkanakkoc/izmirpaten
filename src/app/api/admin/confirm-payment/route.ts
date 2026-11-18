@@ -22,15 +22,18 @@ export async function POST(req: NextRequest) {
 
     // Yeni enrollment oluştur
     const { data: pkg } = await service.from('packages').select('*').eq('id', payment.package_id).single()
-    const totalLessons = pkg ? Math.round(pkg.price / 1200) * 2 : 4 // heuristic
+    if (!pkg) return NextResponse.json({ error: 'Paket bulunamadı, branş belirlenemedi.' }, { status: 400 })
+    const totalLessons = Math.round(pkg.price / 1200) * 2 // heuristic
 
-    // Mevcut aktif enrollment'u pasifleştir
-    await service.from('enrollments').update({ is_active: false }).eq('student_id', payment.student_id).eq('is_active', true)
+    // Mevcut aktif enrollment'u SADECE AYNI BRANŞTA pasifleştir (öğrenci birden fazla branşta aktif kayıta sahip olabilir)
+    await service.from('enrollments').update({ is_active: false })
+      .eq('student_id', payment.student_id).eq('discipline_id', pkg.discipline_id).eq('is_active', true)
 
     await service.from('enrollments').insert({
       student_id: payment.student_id, trainer_id: trainer_id || null,
       package_id: payment.package_id, package_name: payment.package_name,
       total_lessons: totalLessons, lessons_remaining: totalLessons, is_active: true,
+      discipline_id: pkg.discipline_id,
     })
 
     // Öğrenciye bildirim

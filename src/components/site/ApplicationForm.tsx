@@ -1,24 +1,27 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
-import type { Package, Location } from '@/types'
+import type { Package, Location, Discipline, LocationDiscipline } from '@/types'
 
 interface ApplicationFormProps {
   packages: Package[]
   locations: Location[]
+  disciplines: Discipline[]
+  locationDisciplines: LocationDiscipline[]
   kvkkUrl?: string
 }
 
 const DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
 
-export default function ApplicationForm({ packages, locations, kvkkUrl }: ApplicationFormProps) {
+export default function ApplicationForm({ packages, locations, disciplines, locationDisciplines, kvkkUrl }: ApplicationFormProps) {
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [isForOther, setIsForOther] = useState(false)
   const [selectedDays, setSelectedDays] = useState<string[]>([])
 
   const [form, setForm] = useState({
+    discipline_id: disciplines.length === 1 ? disciplines[0].id : '',
     full_name: '',
     phone: '',
     email: '',
@@ -36,6 +39,21 @@ export default function ApplicationForm({ packages, locations, kvkkUrl }: Applic
   })
 
   const set = (key: string, value: string | boolean) => setForm((p) => ({ ...p, [key]: value }))
+
+  const packagesForDiscipline = useMemo(
+    () => packages.filter((p) => p.discipline_id === form.discipline_id),
+    [packages, form.discipline_id]
+  )
+  const locationsForDiscipline = useMemo(() => {
+    const allowedIds = new Set(
+      locationDisciplines.filter((ld) => ld.discipline_id === form.discipline_id).map((ld) => ld.location_id)
+    )
+    return locations.filter((l) => allowedIds.has(l.id))
+  }, [locations, locationDisciplines, form.discipline_id])
+
+  const handleDisciplineChange = (id: string) => {
+    setForm((p) => ({ ...p, discipline_id: id, package_id: '', package_name: '', location_id: '', location_name: '' }))
+  }
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -66,6 +84,10 @@ export default function ApplicationForm({ packages, locations, kvkkUrl }: Applic
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!form.discipline_id) {
+      toast.error('Lütfen bir branş seçin.')
+      return
+    }
     if (!form.kvkk) {
       toast.error('Lütfen KVKK metnini onaylayın.')
       return
@@ -133,6 +155,26 @@ export default function ApplicationForm({ packages, locations, kvkkUrl }: Applic
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-8 shadow-2xl space-y-6">
+          {/* Branş seçimi — birden fazla aktif branş varsa gösterilir */}
+          {disciplines.length > 1 && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Branş <span className="text-red-500">*</span>
+              </label>
+              <select
+                required
+                value={form.discipline_id}
+                onChange={(e) => handleDisciplineChange(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] focus:ring-2 focus:ring-orange-100 transition-all text-sm bg-white"
+              >
+                <option value="">Branş seçin</option>
+                {disciplines.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Ad Soyad & Telefon */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -250,10 +292,11 @@ export default function ApplicationForm({ packages, locations, kvkkUrl }: Applic
               <select
                 value={form.package_id}
                 onChange={(e) => handlePackageChange(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] focus:ring-2 focus:ring-orange-100 transition-all text-sm bg-white"
+                disabled={!form.discipline_id}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] focus:ring-2 focus:ring-orange-100 transition-all text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400"
               >
                 <option value="">Paket seçin</option>
-                {packages.map((p) => (
+                {packagesForDiscipline.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
@@ -267,10 +310,11 @@ export default function ApplicationForm({ packages, locations, kvkkUrl }: Applic
               <select
                 value={form.location_id}
                 onChange={(e) => handleLocationChange(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] focus:ring-2 focus:ring-orange-100 transition-all text-sm bg-white"
+                disabled={!form.discipline_id}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#FF6B35] focus:ring-2 focus:ring-orange-100 transition-all text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400"
               >
                 <option value="">Lokasyon seçin</option>
-                {locations.map((l) => (
+                {locationsForDiscipline.map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.name} – {l.venue}
                   </option>

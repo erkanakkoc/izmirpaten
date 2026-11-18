@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
     })
   } else if (action === 'reject') {
     await service.from('lessons').update({ status: 'cancelled', trainer_note: trainer_note || null }).eq('id', lesson_id)
-    // Slot'u tekrar müsait yap
-    await service.from('trainer_slots').update({ is_booked: false, lesson_id: null }).eq('lesson_id', lesson_id)
+    // is_booked, DB trigger tarafından otomatik senkronlanır (tüm branşlar için). Burada sadece FK bağını temizliyoruz.
+    await service.from('trainer_slots').update({ lesson_id: null }).eq('lesson_id', lesson_id)
 
     await service.from('notifications').insert({
       type: 'lesson_rejected', target_role: 'student',

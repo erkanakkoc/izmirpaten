@@ -1,5 +1,20 @@
 export type ApplicationStatus = 'new' | 'reviewed' | 'approved' | 'rejected'
 
+export interface Discipline {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  icon: string | null
+  cover_image_url: string | null
+  lesson_duration_minutes: number
+  max_group_size: number
+  equipment_note: string | null
+  is_active: boolean
+  sort_order: number
+  created_at: string
+}
+
 export interface Package {
   id: string
   name: string
@@ -9,6 +24,7 @@ export interface Package {
   is_featured: boolean
   is_active: boolean
   sort_order: number
+  discipline_id: string
 }
 
 export interface Location {
@@ -19,6 +35,29 @@ export interface Location {
   weekend_hours: string | null
   maps_url: string | null
   is_active: boolean
+}
+
+export interface GroupSession {
+  id: string
+  discipline_id: string
+  location_id: string
+  session_date: string
+  slot_hour: number
+  max_participants: number
+  trainer_id: string | null
+  lesson_id: string | null
+  status: 'open' | 'confirmed' | 'cancelled' | 'completed'
+  created_at: string
+}
+
+export interface GroupSessionParticipant {
+  id: string
+  group_session_id: string
+  application_id: string | null
+  student_id: string | null
+  enrollment_id: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
 }
 
 export interface Application {
@@ -40,6 +79,8 @@ export interface Application {
   notes: string | null
   status: ApplicationStatus
   video_consent: boolean
+  discipline_id: string
+  group_session_id: string | null
 }
 
 export interface Feature {
@@ -128,6 +169,18 @@ export interface Trainer {
   created_at: string
 }
 
+export interface TrainerDiscipline {
+  trainer_id: string
+  discipline_id: string
+  created_at: string
+}
+
+export interface LocationDiscipline {
+  location_id: string
+  discipline_id: string
+  created_at: string
+}
+
 export interface TrainerAvailability {
   id: string
   trainer_id: string
@@ -158,15 +211,16 @@ export interface Enrollment {
   lessons_remaining: number
   is_active: boolean
   created_at: string
+  discipline_id: string
 }
 
 export type LessonStatus = 'pending' | 'approved' | 'completed' | 'cancelled'
 
 export interface Lesson {
   id: string
-  enrollment_id: string
+  enrollment_id: string | null
   trainer_id: string | null
-  student_id: string
+  student_id: string | null
   location_id: string | null
   scheduled_at: string
   duration_minutes: number
@@ -174,6 +228,8 @@ export interface Lesson {
   trainer_note: string | null
   student_note: string | null
   created_at: string
+  discipline_id: string
+  group_session_id: string | null
 }
 
 export type PaymentStatus = 'pending' | 'confirmed' | 'rejected'

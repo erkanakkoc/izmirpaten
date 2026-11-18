@@ -12,6 +12,16 @@ export default async function TrainerAvailabilityPage() {
   const { data: trainer } = await supabase.from('trainers').select('id').eq('user_id', user.id).single()
   if (!trainer) redirect('/trainer/login')
 
+  const { data: trainerDisciplines } = await supabase
+    .from('trainer_disciplines')
+    .select('discipline_id, disciplines(*)')
+    .eq('trainer_id', trainer.id)
+
+  const disciplines = (trainerDisciplines ?? [])
+    .map((td) => td.disciplines)
+    .filter(Boolean)
+    .flat()
+
   return (
     <div className="p-6 md:p-8">
       <div className="mb-6">
@@ -20,7 +30,7 @@ export default async function TrainerAvailabilityPage() {
           Takvimde bir güne tıkla → saat saat müsaitliğini belirle. Yeşil = müsait, Kırmızı = rezerve.
         </p>
       </div>
-      <AvailabilityManager trainerId={trainer.id} />
+      <AvailabilityManager trainerId={trainer.id} disciplines={disciplines} />
     </div>
   )
 }

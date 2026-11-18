@@ -33,10 +33,19 @@ export async function POST(req: NextRequest) {
 
   // Enrollment oluştur
   if (package_name && total_lessons) {
+    let discipline_id: string | null = null
+    if (package_id) {
+      const { data: pkg } = await service.from('packages').select('discipline_id').eq('id', package_id).single()
+      discipline_id = pkg?.discipline_id ?? null
+    }
+    if (!discipline_id) {
+      return NextResponse.json({ error: 'Paketin branşı belirlenemedi.' }, { status: 400 })
+    }
     await service.from('enrollments').insert({
       student_id: student.id, trainer_id: trainer_id || null,
       package_id: package_id || null, package_name,
       total_lessons, lessons_remaining: total_lessons, is_active: true,
+      discipline_id,
     })
   }
 

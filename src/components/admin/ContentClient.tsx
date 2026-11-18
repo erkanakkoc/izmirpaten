@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Save, Plus, Trash2, GripVertical, ToggleLeft, ToggleRight, Edit2, Check, X } from 'lucide-react'
-import type { Package, Location, Feature, InfoCard, SiteSettings, GalleryImage } from '@/types'
+import type { Package, Location, Feature, InfoCard, SiteSettings, GalleryImage, Discipline, LocationDiscipline } from '@/types'
 import { formatPrice } from '@/lib/utils'
 import LogoCropUpload from './LogoCropUpload'
 import GalleryManager from './GalleryManager'
@@ -159,12 +159,19 @@ function SiteSettingsPanel({ settings: init }: { settings: SiteSettings }) {
 }
 
 // ===================== PACKAGES =====================
-function PackagesPanel({ packages: init }: { packages: Package[] }) {
+function PackagesPanel({ packages: init, disciplines }: { packages: Package[]; disciplines: Discipline[] }) {
   const [packages, setPackages] = useState<Package[]>(init)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editData, setEditData] = useState<Partial<Package>>({})
   const [showAdd, setShowAdd] = useState(false)
-  const [newPkg, setNewPkg] = useState({ name: '', price: '', description: '', badge: '', is_featured: false })
+  const [filterDiscipline, setFilterDiscipline] = useState<string>('all')
+  const [newPkg, setNewPkg] = useState({
+    name: '', price: '', description: '', badge: '', is_featured: false,
+    discipline_id: disciplines[0]?.id ?? '',
+  })
+
+  const disciplineName = (id: string) => disciplines.find((d) => d.id === id)?.name ?? '—'
+  const visiblePackages = filterDiscipline === 'all' ? packages : packages.filter((p) => p.discipline_id === filterDiscipline)
 
   const toggleActive = async (pkg: Package) => {
     const supabase = createClient()
@@ -182,6 +189,7 @@ function PackagesPanel({ packages: init }: { packages: Package[] }) {
     const { error } = await supabase.from('packages').update({
       name: editData.name, price: editData.price,
       description: editData.description, badge: editData.badge, is_featured: editData.is_featured,
+      discipline_id: editData.discipline_id,
     }).eq('id', editingId)
     if (error) { toast.error('Güncelleme başarısız.'); return }
     setPackages((p) => p.map((x) => x.id === editingId ? { ...x, ...editData } : x))
@@ -199,27 +207,36 @@ function PackagesPanel({ packages: init }: { packages: Package[] }) {
 
   const addPkg = async () => {
     if (!newPkg.name || !newPkg.price) { toast.error('Ad ve fiyat zorunlu.'); return }
+    if (!newPkg.discipline_id) { toast.error('Lütfen bir branş seçin.'); return }
     const supabase = createClient()
     const { data, error } = await supabase.from('packages').insert({
       name: newPkg.name, price: parseInt(newPkg.price),
       description: newPkg.description || null, badge: newPkg.badge || null,
       is_featured: newPkg.is_featured, is_active: true, sort_order: packages.length + 1,
+      discipline_id: newPkg.discipline_id,
     }).select().single()
     if (error) { toast.error('Eklenemedi.'); return }
     setPackages((p) => [...p, data])
-    setNewPkg({ name: '', price: '', description: '', badge: '', is_featured: false })
+    setNewPkg({ name: '', price: '', description: '', badge: '', is_featured: false, discipline_id: disciplines[0]?.id ?? '' })
     setShowAdd(false)
     toast.success('Paket eklendi.')
   }
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-        <span className="font-bold text-[#1B2A4A]">{packages.length} Paket</span>
-        <button onClick={() => setShowAdd(!showAdd)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#FF6B35] text-white rounded-xl text-sm font-bold hover:bg-orange-500 transition-all">
-          <Plus size={15} /> Yeni Paket
-        </button>
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
+        <span className="font-bold text-[#1B2A4A]">{visiblePackages.length} Paket</span>
+        <div className="flex items-center gap-2">
+          <select value={filterDiscipline} onChange={(e) => setFilterDiscipline(e.target.value)}
+            className={SMALL_INPUT_CLS}>
+            <option value="all">Tüm branşlar</option>
+            {disciplines.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+          <button onClick={() => setShowAdd(!showAdd)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#FF6B35] text-white rounded-xl text-sm font-bold hover:bg-orange-500 transition-all">
+            <Plus size={15} /> Yeni Paket
+          </button>
+        </div>
       </div>
 
       {showAdd && (
@@ -232,6 +249,11 @@ function PackagesPanel({ packages: init }: { packages: Package[] }) {
               onChange={(e) => setNewPkg(p => ({ ...p, price: e.target.value }))}
               className={SMALL_INPUT_CLS} />
           </div>
+          <select value={newPkg.discipline_id} onChange={(e) => setNewPkg(p => ({ ...p, discipline_id: e.target.value }))}
+            className={`w-full ${SMALL_INPUT_CLS} mb-3`}>
+            <option value="">Branş seçin *</option>
+            {disciplines.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
           <textarea placeholder="Açıklama" rows={2} value={newPkg.description}
             onChange={(e) => setNewPkg(p => ({ ...p, description: e.target.value }))}
             className={`w-full ${SMALL_INPUT_CLS} resize-none mb-3`} />
@@ -252,7 +274,7 @@ function PackagesPanel({ packages: init }: { packages: Package[] }) {
       )}
 
       <div className="divide-y divide-gray-50">
-        {packages.map((pkg) => (
+        {visiblePackages.map((pkg) => (
           <div key={pkg.id} className="px-6 py-4 flex items-start gap-4">
             <GripVertical size={18} className="text-gray-300 mt-1 flex-shrink-0 cursor-grab" />
             <div className="flex-1 min-w-0">
@@ -266,6 +288,11 @@ function PackagesPanel({ packages: init }: { packages: Package[] }) {
                       onChange={(e) => setEditData(p => ({ ...p, price: parseInt(e.target.value) }))}
                       className={SMALL_INPUT_CLS} />
                   </div>
+                  <select value={editData.discipline_id ?? ''}
+                    onChange={(e) => setEditData(p => ({ ...p, discipline_id: e.target.value }))}
+                    className={`w-full ${SMALL_INPUT_CLS}`}>
+                    {disciplines.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select>
                   <textarea rows={2} value={editData.description ?? ''}
                     onChange={(e) => setEditData(p => ({ ...p, description: e.target.value }))}
                     className={`w-full ${SMALL_INPUT_CLS} resize-none`} />
@@ -287,6 +314,7 @@ function PackagesPanel({ packages: init }: { packages: Package[] }) {
                 <>
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="font-semibold text-sm text-[#1B2A4A]">{pkg.name}</span>
+                    <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-semibold">{disciplineName(pkg.discipline_id)}</span>
                     {pkg.badge && <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-semibold">{pkg.badge}</span>}
                     {pkg.is_featured && <span className="text-xs bg-[#FF6B35] text-white px-2 py-0.5 rounded-full font-semibold">Öne Çıkan</span>}
                   </div>
@@ -310,13 +338,36 @@ function PackagesPanel({ packages: init }: { packages: Package[] }) {
 }
 
 // ===================== LOCATIONS =====================
-function LocationsPanel({ locations: init }: { locations: Location[] }) {
+function LocationsPanel({ locations: init, disciplines, locationDisciplines: initLd }: {
+  locations: Location[]; disciplines: Discipline[]; locationDisciplines: LocationDiscipline[]
+}) {
   const [locations, setLocations] = useState<Location[]>(init)
+  const [locationDisciplines, setLocationDisciplines] = useState<LocationDiscipline[]>(initLd)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editData, setEditData] = useState<Partial<Location>>({})
+  const [editDisciplineIds, setEditDisciplineIds] = useState<string[]>([])
+  const [showAdd, setShowAdd] = useState(false)
+  const [newLoc, setNewLoc] = useState({ name: '', venue: '', weekday_hours: '', weekend_hours: '', maps_url: '' })
+  const [newLocDisciplineIds, setNewLocDisciplineIds] = useState<string[]>([])
 
-  const startEdit = (loc: Location) => { setEditingId(loc.id); setEditData(loc) }
-  const cancelEdit = () => { setEditingId(null); setEditData({}) }
+  const disciplinesForLocation = (locationId: string) =>
+    locationDisciplines.filter((ld) => ld.location_id === locationId)
+      .map((ld) => disciplines.find((d) => d.id === ld.discipline_id)?.name)
+      .filter(Boolean) as string[]
+
+  const startEdit = (loc: Location) => {
+    setEditingId(loc.id)
+    setEditData(loc)
+    setEditDisciplineIds(locationDisciplines.filter((ld) => ld.location_id === loc.id).map((ld) => ld.discipline_id))
+  }
+  const cancelEdit = () => { setEditingId(null); setEditData({}); setEditDisciplineIds([]) }
+
+  const toggleEditDiscipline = (id: string) => {
+    setEditDisciplineIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])
+  }
+  const toggleNewLocDiscipline = (id: string) => {
+    setNewLocDisciplineIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])
+  }
 
   const saveEdit = async () => {
     if (!editingId) return
@@ -327,7 +378,18 @@ function LocationsPanel({ locations: init }: { locations: Location[] }) {
       maps_url: editData.maps_url,
     }).eq('id', editingId)
     if (error) { toast.error('Güncelleme başarısız.'); return }
+
+    await supabase.from('location_disciplines').delete().eq('location_id', editingId)
+    if (editDisciplineIds.length > 0) {
+      await supabase.from('location_disciplines').insert(
+        editDisciplineIds.map((discipline_id) => ({ location_id: editingId, discipline_id }))
+      )
+    }
     setLocations((p) => p.map((x) => x.id === editingId ? { ...x, ...editData } : x))
+    setLocationDisciplines((p) => [
+      ...p.filter((ld) => ld.location_id !== editingId),
+      ...editDisciplineIds.map((discipline_id) => ({ location_id: editingId, discipline_id, created_at: new Date().toISOString() })),
+    ])
     cancelEdit()
     toast.success('Lokasyon güncellendi.')
   }
@@ -338,65 +400,147 @@ function LocationsPanel({ locations: init }: { locations: Location[] }) {
     setLocations((p) => p.map((x) => x.id === loc.id ? { ...x, is_active: !loc.is_active } : x))
   }
 
+  const addLocation = async () => {
+    if (!newLoc.name || !newLoc.venue) { toast.error('Lokasyon adı ve mekan zorunlu.'); return }
+    if (newLocDisciplineIds.length === 0) { toast.error('En az bir branş seçin.'); return }
+    const supabase = createClient()
+    const { data, error } = await supabase.from('locations').insert({
+      name: newLoc.name, venue: newLoc.venue,
+      weekday_hours: newLoc.weekday_hours || null, weekend_hours: newLoc.weekend_hours || null,
+      maps_url: newLoc.maps_url || null, is_active: true,
+    }).select().single()
+    if (error) { toast.error('Eklenemedi.'); return }
+    await supabase.from('location_disciplines').insert(
+      newLocDisciplineIds.map((discipline_id) => ({ location_id: data.id, discipline_id }))
+    )
+    setLocations((p) => [...p, data])
+    setLocationDisciplines((p) => [
+      ...p,
+      ...newLocDisciplineIds.map((discipline_id) => ({ location_id: data.id, discipline_id, created_at: new Date().toISOString() })),
+    ])
+    setNewLoc({ name: '', venue: '', weekday_hours: '', weekend_hours: '', maps_url: '' })
+    setNewLocDisciplineIds([])
+    setShowAdd(false)
+    toast.success('Lokasyon eklendi.')
+  }
+
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50">
-      {locations.map((loc) => (
-        <div key={loc.id} className="px-6 py-5">
-          {editingId === loc.id ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                {([
-                  ['Lokasyon Adı', 'name'],
-                  ['Mekan Adı', 'venue'],
-                  ['Hafta İçi Saat', 'weekday_hours'],
-                  ['Hafta Sonu Saat', 'weekend_hours'],
-                ] as [string, keyof Location][]).map(([label, field]) => (
-                  <div key={field}>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
-                    <input
-                      value={(editData[field] as string) ?? ''}
-                      onChange={(e) => setEditData(p => ({ ...p, [field]: e.target.value }))}
-                      className={`w-full ${SMALL_INPUT_CLS}`}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Google Maps URL</label>
-                <input value={editData.maps_url ?? ''}
-                  onChange={(e) => setEditData(p => ({ ...p, maps_url: e.target.value }))}
-                  className={`w-full ${SMALL_INPUT_CLS}`} />
-              </div>
-              <div className="flex gap-2">
-                <button onClick={saveEdit} className="flex items-center gap-1.5 px-4 py-2 bg-green-50 text-green-600 rounded-xl text-sm font-semibold hover:bg-green-100">
-                  <Check size={15} /> Kaydet
-                </button>
-                <button onClick={cancelEdit} className="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold hover:bg-gray-50">İptal</button>
-              </div>
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <span className="font-bold text-[#1B2A4A]">{locations.length} Lokasyon</span>
+        <button onClick={() => setShowAdd(!showAdd)}
+          className="flex items-center gap-2 px-4 py-2 bg-[#FF6B35] text-white rounded-xl text-sm font-bold hover:bg-orange-500 transition-all">
+          <Plus size={15} /> Yeni Lokasyon
+        </button>
+      </div>
+
+      {showAdd && (
+        <div className="px-6 py-4 bg-orange-50 border-b border-orange-100 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <input placeholder="Lokasyon adı *" value={newLoc.name}
+              onChange={(e) => setNewLoc(p => ({ ...p, name: e.target.value }))} className={SMALL_INPUT_CLS} />
+            <input placeholder="Mekan adı *" value={newLoc.venue}
+              onChange={(e) => setNewLoc(p => ({ ...p, venue: e.target.value }))} className={SMALL_INPUT_CLS} />
+            <input placeholder="Hafta içi saat" value={newLoc.weekday_hours}
+              onChange={(e) => setNewLoc(p => ({ ...p, weekday_hours: e.target.value }))} className={SMALL_INPUT_CLS} />
+            <input placeholder="Hafta sonu saat" value={newLoc.weekend_hours}
+              onChange={(e) => setNewLoc(p => ({ ...p, weekend_hours: e.target.value }))} className={SMALL_INPUT_CLS} />
+          </div>
+          <input placeholder="Google Maps URL" value={newLoc.maps_url}
+            onChange={(e) => setNewLoc(p => ({ ...p, maps_url: e.target.value }))} className={`w-full ${SMALL_INPUT_CLS}`} />
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1.5">Hangi branşlarda kullanılıyor? *</label>
+            <div className="flex flex-wrap gap-2">
+              {disciplines.map((d) => (
+                <label key={d.id} className="flex items-center gap-1.5 text-xs font-semibold bg-white border border-gray-200 px-3 py-1.5 rounded-full cursor-pointer">
+                  <input type="checkbox" checked={newLocDisciplineIds.includes(d.id)}
+                    onChange={() => toggleNewLocDiscipline(d.id)} className="accent-[#FF6B35]" />
+                  {d.name}
+                </label>
+              ))}
             </div>
-          ) : (
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-bold text-[#1B2A4A]">{loc.name}</span>
-                  <span className="text-gray-400 text-sm">– {loc.venue}</span>
-                </div>
-                <div className="text-xs text-gray-500 space-y-0.5">
-                  {loc.weekday_hours && <div>Hafta içi: {loc.weekday_hours}</div>}
-                  {loc.weekend_hours && <div>Hafta sonu: {loc.weekend_hours}</div>}
-                  {loc.maps_url && <div className="text-[#FF6B35]">Google Maps bağlantısı mevcut</div>}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => toggleActive(loc)}>
-                  {loc.is_active ? <ToggleRight size={22} className="text-green-500" /> : <ToggleLeft size={22} className="text-gray-400" />}
-                </button>
-                <button onClick={() => startEdit(loc)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500"><Edit2 size={15} /></button>
-              </div>
-            </div>
-          )}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={addLocation} className="px-4 py-2.5 bg-[#FF6B35] text-white rounded-xl text-sm font-bold hover:bg-orange-500">Ekle</button>
+            <button onClick={() => setShowAdd(false)} className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold hover:bg-gray-50">İptal</button>
+          </div>
         </div>
-      ))}
+      )}
+
+      <div className="divide-y divide-gray-50">
+        {locations.map((loc) => (
+          <div key={loc.id} className="px-6 py-5">
+            {editingId === loc.id ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {([
+                    ['Lokasyon Adı', 'name'],
+                    ['Mekan Adı', 'venue'],
+                    ['Hafta İçi Saat', 'weekday_hours'],
+                    ['Hafta Sonu Saat', 'weekend_hours'],
+                  ] as [string, keyof Location][]).map(([label, field]) => (
+                    <div key={field}>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
+                      <input
+                        value={(editData[field] as string) ?? ''}
+                        onChange={(e) => setEditData(p => ({ ...p, [field]: e.target.value }))}
+                        className={`w-full ${SMALL_INPUT_CLS}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Google Maps URL</label>
+                  <input value={editData.maps_url ?? ''}
+                    onChange={(e) => setEditData(p => ({ ...p, maps_url: e.target.value }))}
+                    className={`w-full ${SMALL_INPUT_CLS}`} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Hangi branşlarda kullanılıyor?</label>
+                  <div className="flex flex-wrap gap-2">
+                    {disciplines.map((d) => (
+                      <label key={d.id} className="flex items-center gap-1.5 text-xs font-semibold bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-full cursor-pointer">
+                        <input type="checkbox" checked={editDisciplineIds.includes(d.id)}
+                          onChange={() => toggleEditDiscipline(d.id)} className="accent-[#FF6B35]" />
+                        {d.name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={saveEdit} className="flex items-center gap-1.5 px-4 py-2 bg-green-50 text-green-600 rounded-xl text-sm font-semibold hover:bg-green-100">
+                    <Check size={15} /> Kaydet
+                  </button>
+                  <button onClick={cancelEdit} className="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold hover:bg-gray-50">İptal</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="font-bold text-[#1B2A4A]">{loc.name}</span>
+                    <span className="text-gray-400 text-sm">– {loc.venue}</span>
+                    {disciplinesForLocation(loc.id).map((name) => (
+                      <span key={name} className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-semibold">{name}</span>
+                    ))}
+                  </div>
+                  <div className="text-xs text-gray-500 space-y-0.5">
+                    {loc.weekday_hours && <div>Hafta içi: {loc.weekday_hours}</div>}
+                    {loc.weekend_hours && <div>Hafta sonu: {loc.weekend_hours}</div>}
+                    {loc.maps_url && <div className="text-[#FF6B35]">Google Maps bağlantısı mevcut</div>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => toggleActive(loc)}>
+                    {loc.is_active ? <ToggleRight size={22} className="text-green-500" /> : <ToggleLeft size={22} className="text-gray-400" />}
+                  </button>
+                  <button onClick={() => startEdit(loc)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500"><Edit2 size={15} /></button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -807,6 +951,147 @@ function UsersPanel({ locations }: { locations: Location[] }) {
   )
 }
 
+// ===================== DISCIPLINES =====================
+function DisciplinesPanel({ disciplines: init }: { disciplines: Discipline[] }) {
+  const [disciplines, setDisciplines] = useState<Discipline[]>(init)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editData, setEditData] = useState<Partial<Discipline>>({})
+  const [showAdd, setShowAdd] = useState(false)
+  const [newD, setNewD] = useState({
+    name: '', slug: '', description: '', icon: '',
+    lesson_duration_minutes: '40', max_group_size: '5', equipment_note: '',
+  })
+
+  const startEdit = (d: Discipline) => { setEditingId(d.id); setEditData(d) }
+  const cancelEdit = () => { setEditingId(null); setEditData({}) }
+
+  const saveEdit = async () => {
+    if (!editingId) return
+    const supabase = createClient()
+    const { error } = await supabase.from('disciplines').update({
+      name: editData.name, description: editData.description, icon: editData.icon,
+      cover_image_url: editData.cover_image_url,
+      lesson_duration_minutes: editData.lesson_duration_minutes,
+      max_group_size: editData.max_group_size,
+      equipment_note: editData.equipment_note,
+    }).eq('id', editingId)
+    if (error) { toast.error('Güncelleme başarısız.'); return }
+    setDisciplines((p) => p.map((x) => x.id === editingId ? { ...x, ...editData } : x))
+    cancelEdit()
+    toast.success('Branş güncellendi.')
+  }
+
+  const toggleActive = async (d: Discipline) => {
+    const supabase = createClient()
+    const { error } = await supabase.from('disciplines').update({ is_active: !d.is_active }).eq('id', d.id)
+    if (error) { toast.error('Güncellenemedi.'); return }
+    setDisciplines((p) => p.map((x) => x.id === d.id ? { ...x, is_active: !d.is_active } : x))
+  }
+
+  const addDiscipline = async () => {
+    if (!newD.name) { toast.error('Branş adı zorunlu.'); return }
+    const slug = newD.slug || newD.name.toLowerCase()
+      .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+      .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    const supabase = createClient()
+    const { data, error } = await supabase.from('disciplines').insert({
+      name: newD.name, slug,
+      description: newD.description || null, icon: newD.icon || null,
+      lesson_duration_minutes: parseInt(newD.lesson_duration_minutes) || 40,
+      max_group_size: parseInt(newD.max_group_size) || 5,
+      equipment_note: newD.equipment_note || null,
+      is_active: false, sort_order: disciplines.length,
+    }).select().single()
+    if (error) { toast.error(`Eklenemedi: ${error.message}`); return }
+    setDisciplines((p) => [...p, data])
+    setNewD({ name: '', slug: '', description: '', icon: '', lesson_duration_minutes: '40', max_group_size: '5', equipment_note: '' })
+    setShowAdd(false)
+    toast.success('Branş eklendi (pasif). Paket/lokasyon ekledikten sonra aktif edebilirsiniz.')
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <span className="font-bold text-[#1B2A4A]">{disciplines.length} Branş</span>
+        <button onClick={() => setShowAdd(!showAdd)}
+          className="flex items-center gap-2 px-4 py-2 bg-[#FF6B35] text-white rounded-xl text-sm font-bold hover:bg-orange-500 transition-all">
+          <Plus size={15} /> Yeni Branş
+        </button>
+      </div>
+
+      {showAdd && (
+        <div className="px-6 py-4 bg-orange-50 border-b border-orange-100 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <input placeholder="Branş adı * (ör: Buz Pateni)" value={newD.name}
+              onChange={(e) => setNewD(p => ({ ...p, name: e.target.value }))} className={SMALL_INPUT_CLS} />
+            <input placeholder="İkon adı (Lucide, ör: Snowflake)" value={newD.icon}
+              onChange={(e) => setNewD(p => ({ ...p, icon: e.target.value }))} className={SMALL_INPUT_CLS} />
+            <input placeholder="Ders süresi (dk)" type="number" value={newD.lesson_duration_minutes}
+              onChange={(e) => setNewD(p => ({ ...p, lesson_duration_minutes: e.target.value }))} className={SMALL_INPUT_CLS} />
+            <input placeholder="Max grup büyüklüğü" type="number" value={newD.max_group_size}
+              onChange={(e) => setNewD(p => ({ ...p, max_group_size: e.target.value }))} className={SMALL_INPUT_CLS} />
+          </div>
+          <textarea placeholder="Açıklama" rows={2} value={newD.description}
+            onChange={(e) => setNewD(p => ({ ...p, description: e.target.value }))}
+            className={`w-full ${SMALL_INPUT_CLS} resize-none`} />
+          <input placeholder="Ekipman notu (ör: Paten kendin getirmelisin)" value={newD.equipment_note}
+            onChange={(e) => setNewD(p => ({ ...p, equipment_note: e.target.value }))} className={`w-full ${SMALL_INPUT_CLS}`} />
+          <div className="flex gap-2">
+            <button onClick={addDiscipline} className="px-4 py-2.5 bg-[#FF6B35] text-white rounded-xl text-sm font-bold hover:bg-orange-500">Ekle</button>
+            <button onClick={() => setShowAdd(false)} className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold hover:bg-gray-50">İptal</button>
+          </div>
+        </div>
+      )}
+
+      <div className="divide-y divide-gray-50">
+        {disciplines.map((d) => (
+          <div key={d.id} className="px-6 py-5">
+            {editingId === d.id ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <input value={editData.name ?? ''} onChange={(e) => setEditData(p => ({ ...p, name: e.target.value }))} className={SMALL_INPUT_CLS} placeholder="Branş adı" />
+                  <input value={editData.icon ?? ''} onChange={(e) => setEditData(p => ({ ...p, icon: e.target.value }))} className={SMALL_INPUT_CLS} placeholder="İkon adı" />
+                  <input type="number" value={editData.lesson_duration_minutes ?? ''} onChange={(e) => setEditData(p => ({ ...p, lesson_duration_minutes: parseInt(e.target.value) }))} className={SMALL_INPUT_CLS} placeholder="Ders süresi (dk)" />
+                  <input type="number" value={editData.max_group_size ?? ''} onChange={(e) => setEditData(p => ({ ...p, max_group_size: parseInt(e.target.value) }))} className={SMALL_INPUT_CLS} placeholder="Max grup" />
+                </div>
+                <textarea rows={2} value={editData.description ?? ''} onChange={(e) => setEditData(p => ({ ...p, description: e.target.value }))} className={`w-full ${SMALL_INPUT_CLS} resize-none`} placeholder="Açıklama" />
+                <input value={editData.equipment_note ?? ''} onChange={(e) => setEditData(p => ({ ...p, equipment_note: e.target.value }))} className={`w-full ${SMALL_INPUT_CLS}`} placeholder="Ekipman notu" />
+                <div className="flex gap-2">
+                  <button onClick={saveEdit} className="flex items-center gap-1.5 px-4 py-2 bg-green-50 text-green-600 rounded-xl text-sm font-semibold hover:bg-green-100">
+                    <Check size={15} /> Kaydet
+                  </button>
+                  <button onClick={cancelEdit} className="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold hover:bg-gray-50">İptal</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-bold text-[#1B2A4A]">{d.name}</span>
+                    <span className="text-xs text-gray-400">({d.slug})</span>
+                    {!d.is_active && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-semibold">Pasif</span>}
+                  </div>
+                  <div className="text-xs text-gray-500 space-y-0.5">
+                    <div>Ders süresi: {d.lesson_duration_minutes} dk • Max grup: {d.max_group_size}</div>
+                    {d.equipment_note && <div>Ekipman: {d.equipment_note}</div>}
+                    {d.description && <div className="text-gray-400">{d.description}</div>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => toggleActive(d)}>
+                    {d.is_active ? <ToggleRight size={22} className="text-green-500" /> : <ToggleLeft size={22} className="text-gray-400" />}
+                  </button>
+                  <button onClick={() => startEdit(d)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500"><Edit2 size={15} /></button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ===================== MAIN COMPONENT =====================
 interface Props {
   settings: SiteSettings
@@ -815,12 +1100,15 @@ interface Props {
   features: Feature[]
   infoCards: InfoCard[]
   galleryImages: GalleryImage[]
+  disciplines: Discipline[]
+  locationDisciplines: LocationDiscipline[]
 }
 
-type Tab = 'settings' | 'packages' | 'locations' | 'features' | 'info_cards' | 'footer' | 'toggles' | 'gallery' | 'users'
+type Tab = 'settings' | 'disciplines' | 'packages' | 'locations' | 'features' | 'info_cards' | 'footer' | 'toggles' | 'gallery' | 'users'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'settings', label: '⚙️ Site Ayarları' },
+  { key: 'disciplines', label: '🏅 Branşlar' },
   { key: 'packages', label: '📦 Paketler' },
   { key: 'locations', label: '📍 Lokasyonlar' },
   { key: 'features', label: '✨ Özellikler' },
@@ -838,6 +1126,8 @@ export default function ContentClient({
   features: initialFeatures,
   infoCards: initialInfoCards,
   galleryImages,
+  disciplines: initialDisciplines,
+  locationDisciplines: initialLocationDisciplines,
 }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('settings')
 
@@ -855,8 +1145,9 @@ export default function ContentClient({
       </div>
 
       {activeTab === 'settings' && <SiteSettingsPanel settings={initialSettings} />}
-      {activeTab === 'packages' && <PackagesPanel packages={initialPackages} />}
-      {activeTab === 'locations' && <LocationsPanel locations={initialLocations} />}
+      {activeTab === 'disciplines' && <DisciplinesPanel disciplines={initialDisciplines} />}
+      {activeTab === 'packages' && <PackagesPanel packages={initialPackages} disciplines={initialDisciplines} />}
+      {activeTab === 'locations' && <LocationsPanel locations={initialLocations} disciplines={initialDisciplines} locationDisciplines={initialLocationDisciplines} />}
       {activeTab === 'features' && <FeaturesPanel features={initialFeatures} />}
       {activeTab === 'info_cards' && <InfoCardsPanel infoCards={initialInfoCards} />}
       {activeTab === 'footer' && <FooterPanel settings={initialSettings} />}
