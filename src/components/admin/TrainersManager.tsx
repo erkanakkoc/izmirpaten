@@ -3,16 +3,19 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Plus, Loader2, ToggleLeft, ToggleRight, User, Trash2, KeyRound, Mail } from 'lucide-react'
-import type { Trainer, Location } from '@/types'
+import type { Trainer, Location, Discipline, TrainerDiscipline } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 
 interface Props {
   trainers: Trainer[]
   locations: Location[]
+  disciplines: Discipline[]
+  trainerDisciplines: TrainerDiscipline[]
 }
 
-export default function TrainersManager({ trainers: init, locations }: Props) {
+export default function TrainersManager({ trainers: init, locations, disciplines, trainerDisciplines: initTd }: Props) {
   const [trainers, setTrainers] = useState<Trainer[]>(init)
+  const [trainerDisciplines, setTrainerDisciplines] = useState<TrainerDiscipline[]>(initTd)
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', phone: '', bio: '' })
   const [loading, setLoading] = useState(false)
@@ -91,6 +94,21 @@ export default function TrainersManager({ trainers: init, locations }: Props) {
     setTrainers(p => p.map(x => x.id === t.id ? { ...x, is_active: !t.is_active } : x))
   }
 
+  const disciplinesForTrainer = (trainerId: string) =>
+    trainerDisciplines.filter(td => td.trainer_id === trainerId).map(td => td.discipline_id)
+
+  const toggleTrainerDiscipline = async (trainerId: string, disciplineId: string) => {
+    const supabase = createClient()
+    const has = trainerDisciplines.some(td => td.trainer_id === trainerId && td.discipline_id === disciplineId)
+    if (has) {
+      await supabase.from('trainer_disciplines').delete().eq('trainer_id', trainerId).eq('discipline_id', disciplineId)
+      setTrainerDisciplines(p => p.filter(td => !(td.trainer_id === trainerId && td.discipline_id === disciplineId)))
+    } else {
+      await supabase.from('trainer_disciplines').insert({ trainer_id: trainerId, discipline_id: disciplineId })
+      setTrainerDisciplines(p => [...p, { trainer_id: trainerId, discipline_id: disciplineId, created_at: new Date().toISOString() }])
+    }
+  }
+
   const CLS = 'w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]'
 
   return (
@@ -130,7 +148,7 @@ export default function TrainersManager({ trainers: init, locations }: Props) {
 
         <div className="divide-y divide-gray-50">
           {trainers.map(t => (
-            <div key={t.id} className="px-6 py-4 flex items-center gap-4">
+            <div key={t.id} className="px-6 py-4 flex items-center gap-4 flex-wrap">
               <div className="w-10 h-10 rounded-full bg-[#FF6B35]/10 flex items-center justify-center flex-shrink-0">
                 <User size={18} className="text-[#FF6B35]" />
               </div>
@@ -138,6 +156,21 @@ export default function TrainersManager({ trainers: init, locations }: Props) {
                 <div className="font-semibold text-sm text-[#1B2A4A]">{t.name}</div>
                 <div className="text-xs text-gray-400">{t.email}{t.phone ? ` • ${t.phone}` : ''}</div>
                 {t.bio && <div className="text-xs text-gray-500 mt-0.5 truncate">{t.bio}</div>}
+                {disciplines.length > 1 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {disciplines.map(d => {
+                      const active = disciplinesForTrainer(t.id).includes(d.id)
+                      return (
+                        <button key={d.id} onClick={() => toggleTrainerDiscipline(t.id, d.id)}
+                          className={`text-xs px-2.5 py-1 rounded-full font-semibold border transition-colors ${
+                            active ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-gray-300'
+                          }`}>
+                          {d.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <span className={`text-xs px-2 py-1 rounded-full font-semibold ${t.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>

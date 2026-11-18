@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, ClipboardList, Mail, Settings, LogOut, Zap, ChevronRight, Menu, X, Star, Users, GraduationCap, CreditCard } from 'lucide-react'
+import { LayoutDashboard, ClipboardList, Mail, Settings, LogOut, Zap, ChevronRight, Menu, X, Star, Users, GraduationCap, CreditCard, UsersRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 const ALL_NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true, restrictedHide: true },
   { href: '/admin/applications', label: 'Başvurular', icon: ClipboardList, exact: false, restrictedHide: false },
+  { href: '/admin/group-sessions', label: 'Grup Dersleri', icon: UsersRound, exact: false, restrictedHide: true },
   { href: '/admin/trainers', label: 'Eğitmenler', icon: GraduationCap, exact: false, restrictedHide: true },
   { href: '/admin/students', label: 'Öğrenciler', icon: Users, exact: false, restrictedHide: true },
   { href: '/admin/payments', label: 'Ödemeler', icon: CreditCard, exact: false, restrictedHide: true },

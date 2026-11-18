@@ -10,9 +10,11 @@ export default async function TrainersPage() {
   if (locationFilter) redirect('/admin/applications')
 
   const supabase = await createClient()
-  const [trainersRes, locationsRes] = await Promise.all([
+  const [trainersRes, locationsRes, disciplinesRes, trainerDisciplinesRes] = await Promise.all([
     supabase.from('trainers').select('*').order('created_at'),
     supabase.from('locations').select('*').eq('is_active', true),
+    supabase.from('disciplines').select('*').order('sort_order'),
+    supabase.from('trainer_disciplines').select('*'),
   ])
 
   return (
@@ -21,7 +23,12 @@ export default async function TrainersPage() {
         <h1 className="text-2xl font-extrabold text-[#1B2A4A]">Eğitmenler</h1>
         <p className="text-gray-500 text-sm mt-1">Eğitmenleri yönet, müsaitliklerini görüntüle.</p>
       </div>
-      <TrainersManager trainers={trainersRes.data ?? []} locations={locationsRes.data ?? []} />
+      <TrainersManager
+        trainers={trainersRes.data ?? []}
+        locations={locationsRes.data ?? []}
+        disciplines={disciplinesRes.data ?? []}
+        trainerDisciplines={trainerDisciplinesRes.data ?? []}
+      />
     </div>
   )
 }
