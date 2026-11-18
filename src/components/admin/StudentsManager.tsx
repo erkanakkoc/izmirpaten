@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Plus, Loader2, ChevronDown, ChevronUp, Trash2, RefreshCw, History, KeyRound, Mail } from 'lucide-react'
-import type { Student, Trainer, Package, Enrollment, Lesson } from '@/types'
+import type { Student, Trainer, Package, Enrollment, Lesson, TrainerDiscipline } from '@/types'
 import { formatDate } from '@/lib/utils'
 
 interface TrainerChange {
@@ -28,11 +28,13 @@ interface TrainerChangeRequest {
 interface Props {
   students: Student[]
   trainers: { id: string; name: string }[]
-  packages: { id: string; name: string; price: number }[]
+  packages: { id: string; name: string; price: number; discipline_id: string }[]
   enrollments: Enrollment[]
   lessons: (Lesson & { trainers?: { name: string } | null })[]
   trainerChanges: TrainerChange[]
   pendingRequests: (TrainerChangeRequest & { students?: { full_name: string } | null })[]
+  disciplines: { id: string; name: string }[]
+  trainerDisciplines: TrainerDiscipline[]
 }
 
 const PACKAGE_LESSONS: Record<string, number> = {
@@ -41,11 +43,11 @@ const PACKAGE_LESSONS: Record<string, number> = {
 }
 
 type InviteForm = {
-  full_name: string; email: string; phone: string
+  full_name: string; email: string; phone: string; discipline_id: string
   trainer_id: string; package_id: string; package_name: string; total_lessons: string
 }
 
-export default function StudentsManager({ students, trainers, packages, enrollments, lessons, trainerChanges, pendingRequests }: Props) {
+export default function StudentsManager({ students, trainers, packages, enrollments, lessons, trainerChanges, pendingRequests, disciplines, trainerDisciplines }: Props) {
   const [list, setList] = useState<Student[]>(students)
   const [showAdd, setShowAdd] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -59,7 +61,14 @@ export default function StudentsManager({ students, trainers, packages, enrollme
   const [newTrainerId, setNewTrainerId] = useState('')
   const [changeReason, setChangeReason] = useState('')
   const [changing, setChanging] = useState(false)
-  const [form, setForm] = useState<InviteForm>({ full_name: '', email: '', phone: '', trainer_id: '', package_id: '', package_name: '', total_lessons: '' })
+  const [form, setForm] = useState<InviteForm>({ full_name: '', email: '', phone: '', discipline_id: disciplines[0]?.id ?? '', trainer_id: '', package_id: '', package_name: '', total_lessons: '' })
+
+  const disciplineName = (id: string) => disciplines.find(d => d.id === id)?.name ?? '—'
+  const packagesForDiscipline = packages.filter(p => p.discipline_id === form.discipline_id)
+  const trainersForDiscipline = (disciplineId: string) => {
+    const allowed = new Set(trainerDisciplines.filter(td => td.discipline_id === disciplineId).map(td => td.trainer_id))
+    return trainers.filter(t => allowed.has(t.id))
+  }
 
   const setStudentPassword = async () => {
     if (!pwModal || !newPw || newPw.length < 6) { toast.error('En az 6 karakter gerekli.'); return }
@@ -89,10 +98,14 @@ export default function StudentsManager({ students, trainers, packages, enrollme
     toast.success('Şifre sıfırlama maili gönderildi.')
   }
 
-  const getEnrollment = (studentId: string) => enrollments.find(e => e.student_id === studentId)
-  const getStudentLessons = (studentId: string) => lessons.filter(l => l.student_id === studentId).sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime())
+  const getEnrollments = (studentId: string) => enrollments.filter(e => e.student_id === studentId)
+  const getEnrollmentLessons = (enrollmentId: string) => lessons.filter(l => l.enrollment_id === enrollmentId).sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime())
   const getStudentChanges = (enrollmentId: string) => trainerChanges.filter(c => c.enrollment_id === enrollmentId)
   const getTrainerName = (id: string | null) => trainers.find(t => t.id === id)?.name ?? 'Yok'
+
+  const handleDisciplineChange = (disciplineId: string) => {
+    setForm(p => ({ ...p, discipline_id: disciplineId, trainer_id: '', package_id: '', package_name: '', total_lessons: '' }))
+  }
 
   const handlePackageChange = (pkgId: string) => {
     const pkg = packages.find(p => p.id === pkgId)
@@ -111,6 +124,7 @@ export default function StudentsManager({ students, trainers, packages, enrollme
       if (!res.ok) throw new Error(data.error)
       setList(p => [data.student, ...p])
       setShowAdd(false)
+      setForm({ full_name: '', email: '', phone: '', discipline_id: disciplines[0]?.id ?? '', trainer_id: '', package_id: '', package_name: '', total_lessons: '' })
       toast.success('Öğrenci eklendi, davet maili gönderildi.')
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Hata.') }
     finally { setLoading(false) }
@@ -203,15 +217,21 @@ export default function StudentsManager({ students, trainers, packages, enrollme
                 <input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} className={CLS} /></div>
               <div><label className="block text-xs font-semibold text-gray-600 mb-1">Telefon</label>
                 <input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} className={CLS} /></div>
+              {disciplines.length > 1 && (
+                <div><label className="block text-xs font-semibold text-gray-600 mb-1">Branş</label>
+                  <select value={form.discipline_id} onChange={e => handleDisciplineChange(e.target.value)} className={`${CLS} bg-white`}>
+                    {disciplines.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select></div>
+              )}
               <div><label className="block text-xs font-semibold text-gray-600 mb-1">Eğitmen</label>
                 <select value={form.trainer_id} onChange={e => setForm(p => ({ ...p, trainer_id: e.target.value }))} className={`${CLS} bg-white`}>
                   <option value="">Seç</option>
-                  {trainers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  {trainersForDiscipline(form.discipline_id).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select></div>
               <div><label className="block text-xs font-semibold text-gray-600 mb-1">Paket</label>
                 <select value={form.package_id} onChange={e => handlePackageChange(e.target.value)} className={`${CLS} bg-white`}>
                   <option value="">Seç</option>
-                  {packages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {packagesForDiscipline.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select></div>
               <div><label className="block text-xs font-semibold text-gray-600 mb-1">Toplam Ders</label>
                 <input type="number" min={1} value={form.total_lessons} onChange={e => setForm(p => ({ ...p, total_lessons: e.target.value }))} className={CLS} /></div>
@@ -229,9 +249,8 @@ export default function StudentsManager({ students, trainers, packages, enrollme
 
         <div className="divide-y divide-gray-50">
           {list.map(student => {
-            const enrollment = getEnrollment(student.id)
-            const studentLessons = getStudentLessons(student.id)
-            const changes = enrollment ? getStudentChanges(enrollment.id) : []
+            const studentEnrollments = getEnrollments(student.id)
+            const totalRemaining = studentEnrollments.reduce((sum, e) => sum + e.lessons_remaining, 0)
             const isOpen = expanded === student.id
             return (
               <div key={student.id}>
@@ -240,15 +259,20 @@ export default function StudentsManager({ students, trainers, packages, enrollme
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-sm text-[#1B2A4A]">{student.full_name}</div>
                     <div className="text-xs text-gray-400">{student.email}</div>
-                    {enrollment && (
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        {enrollment.package_name} • Eğitmen: {getTrainerName(enrollment.trainer_id)}
+                    {studentEnrollments.length > 0 && (
+                      <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap gap-x-3">
+                        {studentEnrollments.map(e => (
+                          <span key={e.id}>
+                            {disciplines.length > 1 && <span className="font-semibold">{disciplineName(e.discipline_id)}: </span>}
+                            {e.package_name} • Eğitmen: {getTrainerName(e.trainer_id)}
+                          </span>
+                        ))}
                       </div>
                     )}
                   </div>
-                  {enrollment && (
+                  {studentEnrollments.length > 0 && (
                     <div className="text-center flex-shrink-0">
-                      <div className={`text-lg font-extrabold ${enrollment.lessons_remaining <= 1 ? 'text-red-500' : 'text-[#FF6B35]'}`}>{enrollment.lessons_remaining}</div>
+                      <div className={`text-lg font-extrabold ${totalRemaining <= 1 ? 'text-red-500' : 'text-[#FF6B35]'}`}>{totalRemaining}</div>
                       <div className="text-xs text-gray-400">ders</div>
                     </div>
                   )}
@@ -268,77 +292,87 @@ export default function StudentsManager({ students, trainers, packages, enrollme
                 </button>
 
                 {isOpen && (
-                  <div className="px-6 pb-5 bg-gray-50/50 border-t border-gray-100">
-                    {enrollment && (
-                      <>
-                        {/* Ders istatistikleri */}
-                        <div className="mt-4 mb-4 grid grid-cols-3 gap-3">
-                          <div className="bg-white rounded-xl p-3 text-center border border-gray-100">
-                            <div className="text-xl font-extrabold text-[#1B2A4A]">{enrollment.total_lessons}</div>
-                            <div className="text-xs text-gray-400">Toplam</div>
-                          </div>
-                          <div className="bg-white rounded-xl p-3 text-center border border-green-100">
-                            <div className="text-xl font-extrabold text-green-600">{enrollment.lessons_remaining}</div>
-                            <div className="text-xs text-gray-400">Kalan</div>
-                          </div>
-                          <div className="bg-white rounded-xl p-3 text-center border border-orange-100">
-                            <div className="text-xl font-extrabold text-[#FF6B35]">{enrollment.total_lessons - enrollment.lessons_remaining}</div>
-                            <div className="text-xs text-gray-400">Alınan</div>
-                          </div>
-                        </div>
-
-                        {/* Eğitmen değiştir */}
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="text-xs font-semibold text-gray-500">
-                            Mevcut Eğitmen: <span className="text-[#1B2A4A]">{getTrainerName(enrollment.trainer_id)}</span>
-                          </div>
-                          <button onClick={() => { setChangeTrainerModal({ enrollmentId: enrollment.id, studentName: student.full_name }); setNewTrainerId(enrollment.trainer_id ?? '') }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-xs font-semibold hover:bg-blue-100">
-                            <RefreshCw size={12} /> Eğitmen Değiştir
-                          </button>
-                        </div>
-                      </>
+                  <div className="px-6 pb-5 bg-gray-50/50 border-t border-gray-100 space-y-5">
+                    {studentEnrollments.length === 0 && (
+                      <div className="pt-4 text-xs text-gray-400">Aktif kaydı yok.</div>
                     )}
+                    {studentEnrollments.map(enrollment => {
+                      const enrollmentLessons = getEnrollmentLessons(enrollment.id)
+                      const changes = getStudentChanges(enrollment.id)
+                      return (
+                        <div key={enrollment.id} className="pt-4 first:pt-4">
+                          {disciplines.length > 1 && (
+                            <div className="text-xs font-bold text-[#FF6B35] uppercase tracking-wide mb-2">{disciplineName(enrollment.discipline_id)}</div>
+                          )}
+                          {/* Ders istatistikleri */}
+                          <div className="mb-4 grid grid-cols-3 gap-3">
+                            <div className="bg-white rounded-xl p-3 text-center border border-gray-100">
+                              <div className="text-xl font-extrabold text-[#1B2A4A]">{enrollment.total_lessons}</div>
+                              <div className="text-xs text-gray-400">Toplam</div>
+                            </div>
+                            <div className="bg-white rounded-xl p-3 text-center border border-green-100">
+                              <div className="text-xl font-extrabold text-green-600">{enrollment.lessons_remaining}</div>
+                              <div className="text-xs text-gray-400">Kalan</div>
+                            </div>
+                            <div className="bg-white rounded-xl p-3 text-center border border-orange-100">
+                              <div className="text-xl font-extrabold text-[#FF6B35]">{enrollment.total_lessons - enrollment.lessons_remaining}</div>
+                              <div className="text-xs text-gray-400">Alınan</div>
+                            </div>
+                          </div>
 
-                    {/* Dersler */}
-                    {studentLessons.length > 0 && (
-                      <div className="mb-4">
-                        <div className="text-xs font-semibold text-gray-500 mb-2">Son Dersler</div>
-                        <div className="space-y-1.5">
-                          {studentLessons.slice(0, 5).map(l => (
-                            <div key={l.id} className="flex items-center gap-3 bg-white rounded-xl p-2.5 border border-gray-100">
-                              <div className="flex-1 min-w-0">
-                                <div className="text-xs font-semibold text-[#1B2A4A]">
-                                  {new Date(l.scheduled_at).toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short' })} {new Date(l.scheduled_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-                                </div>
-                                <div className="text-xs text-gray-400">{l.trainers?.name}</div>
+                          {/* Eğitmen değiştir */}
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="text-xs font-semibold text-gray-500">
+                              Mevcut Eğitmen: <span className="text-[#1B2A4A]">{getTrainerName(enrollment.trainer_id)}</span>
+                            </div>
+                            <button onClick={() => { setChangeTrainerModal({ enrollmentId: enrollment.id, studentName: student.full_name }); setNewTrainerId(enrollment.trainer_id ?? '') }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-xs font-semibold hover:bg-blue-100">
+                              <RefreshCw size={12} /> Eğitmen Değiştir
+                            </button>
+                          </div>
+
+                          {/* Dersler */}
+                          {enrollmentLessons.length > 0 && (
+                            <div className="mb-4">
+                              <div className="text-xs font-semibold text-gray-500 mb-2">Son Dersler</div>
+                              <div className="space-y-1.5">
+                                {enrollmentLessons.slice(0, 5).map(l => (
+                                  <div key={l.id} className="flex items-center gap-3 bg-white rounded-xl p-2.5 border border-gray-100">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs font-semibold text-[#1B2A4A]">
+                                        {new Date(l.scheduled_at).toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short' })} {new Date(l.scheduled_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                                      </div>
+                                      <div className="text-xs text-gray-400">{l.trainers?.name}</div>
+                                    </div>
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${lessonStatusColor(l.status)}`}>{lessonStatusLabel(l.status)}</span>
+                                  </div>
+                                ))}
                               </div>
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${lessonStatusColor(l.status)}`}>{lessonStatusLabel(l.status)}</span>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                          )}
 
-                    {/* Eğitmen değişiklik geçmişi */}
-                    {changes.length > 0 && (
-                      <div>
-                        <div className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1.5">
-                          <History size={12} /> Eğitmen Değişiklik Geçmişi
-                        </div>
-                        <div className="space-y-1.5">
-                          {changes.map(c => (
-                            <div key={c.id} className="bg-white rounded-xl p-2.5 border border-gray-100 text-xs">
-                              <span className="text-gray-500">{c.old_trainer_name ?? 'Yok'}</span>
-                              <span className="text-gray-400 mx-2">→</span>
-                              <span className="font-semibold text-[#1B2A4A]">{c.new_trainer_name ?? 'Yok'}</span>
-                              {c.reason && <span className="text-gray-400 ml-2">• {c.reason}</span>}
-                              <span className="text-gray-400 ml-2">{formatDate(c.created_at)}</span>
+                          {/* Eğitmen değişiklik geçmişi */}
+                          {changes.length > 0 && (
+                            <div>
+                              <div className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1.5">
+                                <History size={12} /> Eğitmen Değişiklik Geçmişi
+                              </div>
+                              <div className="space-y-1.5">
+                                {changes.map(c => (
+                                  <div key={c.id} className="bg-white rounded-xl p-2.5 border border-gray-100 text-xs">
+                                    <span className="text-gray-500">{c.old_trainer_name ?? 'Yok'}</span>
+                                    <span className="text-gray-400 mx-2">→</span>
+                                    <span className="font-semibold text-[#1B2A4A]">{c.new_trainer_name ?? 'Yok'}</span>
+                                    {c.reason && <span className="text-gray-400 ml-2">• {c.reason}</span>}
+                                    <span className="text-gray-400 ml-2">{formatDate(c.created_at)}</span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          ))}
+                          )}
                         </div>
-                      </div>
-                    )}
+                      )
+                    })}
                   </div>
                 )}
               </div>

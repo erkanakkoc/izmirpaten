@@ -15,20 +15,24 @@ interface Props {
   initialApplications: Application[]
   packages: { id: string; name: string }[]
   locations: { id: string; name: string }[]
+  disciplines: { id: string; name: string }[]
 }
 
 const STATUS_OPTIONS: ApplicationStatus[] = ['new', 'reviewed', 'approved', 'rejected']
 const PAGE_SIZE = 20
 
-export default function ApplicationsClient({ initialApplications, packages, locations }: Props) {
+export default function ApplicationsClient({ initialApplications, packages, locations, disciplines }: Props) {
   const [apps, setApps] = useState<Application[]>(initialApplications)
   const [search, setSearch] = useState('')
   const [filterPkg, setFilterPkg] = useState('')
   const [filterLoc, setFilterLoc] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterDiscipline, setFilterDiscipline] = useState('')
   const [page, setPage] = useState(1)
   const [selectedApp, setSelectedApp] = useState<Application | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+
+  const disciplineName = (id: string) => disciplines.find((d) => d.id === id)?.name ?? '—'
 
   const filtered = useMemo(() => {
     return apps.filter((a) => {
@@ -37,9 +41,10 @@ export default function ApplicationsClient({ initialApplications, packages, loca
       if (filterPkg && a.package_name !== filterPkg) return false
       if (filterLoc && a.location_name !== filterLoc) return false
       if (filterStatus && a.status !== filterStatus) return false
+      if (filterDiscipline && a.discipline_id !== filterDiscipline) return false
       return true
     })
-  }, [apps, search, filterPkg, filterLoc, filterStatus])
+  }, [apps, search, filterPkg, filterLoc, filterStatus, filterDiscipline])
 
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
@@ -62,9 +67,9 @@ export default function ApplicationsClient({ initialApplications, packages, loca
   }
 
   const exportCSV = () => {
-    const headers = ['Ad Soyad', 'Telefon', 'E-posta', 'Paket', 'Lokasyon', 'Durum', 'Tarih']
+    const headers = ['Ad Soyad', 'Telefon', 'E-posta', 'Branş', 'Paket', 'Lokasyon', 'Durum', 'Tarih']
     const rows = filtered.map((a) => [
-      a.full_name, a.phone, a.email ?? '', a.package_name, a.location_name,
+      a.full_name, a.phone, a.email ?? '', disciplineName(a.discipline_id), a.package_name, a.location_name,
       statusLabel(a.status), formatDate(a.created_at)
     ])
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
@@ -89,6 +94,16 @@ export default function ApplicationsClient({ initialApplications, packages, loca
               className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35]"
             />
           </div>
+          {disciplines.length > 1 && (
+            <select
+              value={filterDiscipline}
+              onChange={(e) => { setFilterDiscipline(e.target.value); setPage(1) }}
+              className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35] bg-white"
+            >
+              <option value="">Tüm Branşlar</option>
+              {disciplines.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          )}
           <select
             value={filterPkg}
             onChange={(e) => { setFilterPkg(e.target.value); setPage(1) }}
@@ -131,7 +146,7 @@ export default function ApplicationsClient({ initialApplications, packages, loca
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {['Ad Soyad', 'Telefon', 'Paket', 'Lokasyon', 'Tarih', 'Durum', 'İşlemler'].map((h) => (
+                {[...(disciplines.length > 1 ? ['Branş'] : []), 'Ad Soyad', 'Telefon', 'Paket', 'Lokasyon', 'Tarih', 'Durum', 'İşlemler'].map((h) => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">
                     {h}
                   </th>
@@ -141,6 +156,13 @@ export default function ApplicationsClient({ initialApplications, packages, loca
             <tbody className="divide-y divide-gray-50">
               {paginated.map((app) => (
                 <tr key={app.id} className="hover:bg-gray-50/50 transition-colors">
+                  {disciplines.length > 1 && (
+                    <td className="px-4 py-3">
+                      <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-semibold">
+                        {disciplineName(app.discipline_id)}
+                      </span>
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <div className="font-semibold text-[#1B2A4A]">{app.full_name}</div>
                     {app.email && <div className="text-xs text-gray-400">{app.email}</div>}
@@ -209,7 +231,7 @@ export default function ApplicationsClient({ initialApplications, packages, loca
               ))}
               {paginated.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-gray-400 text-sm">
+                  <td colSpan={disciplines.length > 1 ? 8 : 7} className="px-4 py-10 text-center text-gray-400 text-sm">
                     Başvuru bulunamadı.
                   </td>
                 </tr>

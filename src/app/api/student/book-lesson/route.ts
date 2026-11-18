@@ -44,12 +44,15 @@ export async function POST(req: NextRequest) {
   await service.from('trainer_slots').update({ lesson_id: lesson.id }).eq('id', slot_id)
 
   // Eğitmene bildirim
-  const { data: trainer } = await service.from('trainers').select('user_id').eq('id', trainer_id).single()
+  const [{ data: trainer }, { data: discipline }] = await Promise.all([
+    service.from('trainers').select('user_id').eq('id', trainer_id).single(),
+    service.from('disciplines').select('name').eq('id', enrollment.discipline_id).single(),
+  ])
   await service.from('notifications').insert({
     type: 'lesson_request', target_role: 'trainer',
     target_user_id: trainer?.user_id ?? null,
     title: 'Yeni ders talebi',
-    message: `${student.full_name} ders rezervasyonu yaptı.`,
+    message: `${student.full_name} ${discipline?.name ?? ''} dersi için rezervasyon yaptı.`,
     link: '/trainer/lessons',
     data: { lesson_id: lesson.id },
   })

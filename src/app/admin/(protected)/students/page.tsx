@@ -10,14 +10,16 @@ export default async function StudentsPage() {
   if (locationFilter) redirect('/admin/applications')
 
   const supabase = await createClient()
-  const [studentsRes, trainersRes, packagesRes, enrollmentsRes, lessonsRes, changesRes, requestsRes] = await Promise.all([
+  const [studentsRes, trainersRes, packagesRes, enrollmentsRes, lessonsRes, changesRes, requestsRes, disciplinesRes, trainerDisciplinesRes] = await Promise.all([
     supabase.from('students').select('*').order('created_at', { ascending: false }),
     supabase.from('trainers').select('id, name').eq('is_active', true),
-    supabase.from('packages').select('id, name, price').eq('is_active', true).order('sort_order'),
+    supabase.from('packages').select('id, name, price, discipline_id').eq('is_active', true).order('sort_order'),
     supabase.from('enrollments').select('*').eq('is_active', true),
     supabase.from('lessons').select('*, trainers(name)').in('status', ['pending', 'approved', 'completed']),
     supabase.from('trainer_changes').select('*').order('created_at', { ascending: false }),
     supabase.from('trainer_change_requests').select('*, students(full_name)').eq('status', 'pending').order('created_at', { ascending: false }),
+    supabase.from('disciplines').select('id, name').order('sort_order'),
+    supabase.from('trainer_disciplines').select('*'),
   ])
 
   return (
@@ -34,6 +36,8 @@ export default async function StudentsPage() {
         lessons={lessonsRes.data ?? []}
         trainerChanges={changesRes.data ?? []}
         pendingRequests={requestsRes.data ?? []}
+        disciplines={disciplinesRes.data ?? []}
+        trainerDisciplines={trainerDisciplinesRes.data ?? []}
       />
     </div>
   )

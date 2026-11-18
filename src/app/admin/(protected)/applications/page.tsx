@@ -23,12 +23,13 @@ export default async function ApplicationsPage() {
     appsQuery = appsQuery.eq('location_name', locationFilter)
   }
 
-  const [appsRes, packagesRes, locationsRes] = await Promise.all([
+  const [appsRes, packagesRes, locationsRes, disciplinesRes] = await Promise.all([
     appsQuery,
     supabase.from('packages').select('id, name').order('sort_order'),
     locationFilter
       ? supabase.from('locations').select('id, name').eq('name', locationFilter)
       : supabase.from('locations').select('id, name'),
+    supabase.from('disciplines').select('id, name').order('sort_order'),
   ])
 
   return (
@@ -45,6 +46,7 @@ export default async function ApplicationsPage() {
         initialApplications={appsRes.data ?? []}
         packages={packagesRes.data ?? []}
         locations={locationsRes.data ?? []}
+        disciplines={disciplinesRes.data ?? []}
       />
     </div>
   )

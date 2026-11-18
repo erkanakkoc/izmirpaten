@@ -983,6 +983,20 @@ function DisciplinesPanel({ disciplines: init }: { disciplines: Discipline[] }) 
 
   const toggleActive = async (d: Discipline) => {
     const supabase = createClient()
+    if (d.is_active) {
+      // Pasife alınmadan önce bağlı aktif paket / gelecek ders sayısını göster
+      const [{ count: packageCount }, { count: lessonCount }] = await Promise.all([
+        supabase.from('packages').select('id', { count: 'exact', head: true }).eq('discipline_id', d.id).eq('is_active', true),
+        supabase.from('lessons').select('id', { count: 'exact', head: true }).eq('discipline_id', d.id)
+          .in('status', ['pending', 'approved']).gte('scheduled_at', new Date().toISOString()),
+      ])
+      if ((packageCount ?? 0) > 0 || (lessonCount ?? 0) > 0) {
+        const ok = window.confirm(
+          `${d.name}: ${packageCount ?? 0} aktif paketi ve ${lessonCount ?? 0} gelecek dersi var.\n\nPasife almak bu paketleri sitede göstermeyi durdurur (mevcut kayıtlar bozulmaz). Devam edilsin mi?`
+        )
+        if (!ok) return
+      }
+    }
     const { error } = await supabase.from('disciplines').update({ is_active: !d.is_active }).eq('id', d.id)
     if (error) { toast.error('Güncellenemedi.'); return }
     setDisciplines((p) => p.map((x) => x.id === d.id ? { ...x, is_active: !d.is_active } : x))

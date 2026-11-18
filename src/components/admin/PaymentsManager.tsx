@@ -3,22 +3,38 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Check, X, Loader2 } from 'lucide-react'
-import type { PaymentRequest } from '@/types'
+import type { PaymentRequest, TrainerDiscipline } from '@/types'
 import { formatDate, formatPrice } from '@/lib/utils'
 
-type PaymentWithStudent = PaymentRequest & { students?: { full_name: string; email: string } | null }
+type PaymentWithStudent = PaymentRequest & {
+  students?: { full_name: string; email: string } | null
+  packages?: { discipline_id: string } | { discipline_id: string }[] | null
+}
 
 interface Props {
   payments: PaymentWithStudent[]
   trainers: { id: string; name: string }[]
+  trainerDisciplines: TrainerDiscipline[]
+  disciplines: { id: string; name: string }[]
 }
 
-export default function PaymentsManager({ payments: init, trainers }: Props) {
+function disciplineIdOf(pkg: PaymentWithStudent['packages']): string | undefined {
+  return Array.isArray(pkg) ? pkg[0]?.discipline_id : pkg?.discipline_id
+}
+
+export default function PaymentsManager({ payments: init, trainers, trainerDisciplines, disciplines }: Props) {
   const [payments, setPayments] = useState<PaymentWithStudent[]>(init)
   const [processing, setProcessing] = useState<string | null>(null)
   const [modal, setModal] = useState<{ payment: PaymentWithStudent; action: 'confirm' | 'reject' } | null>(null)
   const [adminNote, setAdminNote] = useState('')
   const [trainerId, setTrainerId] = useState('')
+
+  const trainersForPackage = (pkg: PaymentWithStudent['packages']) => {
+    const disciplineId = disciplineIdOf(pkg)
+    if (!disciplineId || disciplines.length <= 1) return trainers
+    const allowed = new Set(trainerDisciplines.filter(td => td.discipline_id === disciplineId).map(td => td.trainer_id))
+    return trainers.filter(t => allowed.has(t.id))
+  }
 
   const pending = payments.filter(p => p.status === 'pending').length
 
@@ -106,7 +122,7 @@ export default function PaymentsManager({ payments: init, trainers }: Props) {
                 <select value={trainerId} onChange={e => setTrainerId(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#FF6B35] bg-white">
                   <option value="">Seç (opsiyonel)</option>
-                  {trainers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  {trainersForPackage(modal.payment.packages).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
             )}
