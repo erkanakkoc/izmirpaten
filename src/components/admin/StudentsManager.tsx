@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Plus, Loader2, ChevronDown, ChevronUp, Trash2, RefreshCw, History, KeyRound, Mail } from 'lucide-react'
+import { Plus, Loader2, ChevronDown, ChevronUp, Trash2, RefreshCw, History, KeyRound, Mail, Copy, AlertTriangle } from 'lucide-react'
 import type { Student, Trainer, Package, Enrollment, Lesson, TrainerDiscipline } from '@/types'
 import { formatDate } from '@/lib/utils'
 
@@ -62,6 +62,7 @@ export default function StudentsManager({ students, trainers, packages, enrollme
   const [changeReason, setChangeReason] = useState('')
   const [changing, setChanging] = useState(false)
   const [form, setForm] = useState<InviteForm>({ full_name: '', email: '', phone: '', discipline_id: disciplines[0]?.id ?? '', trainer_id: '', package_id: '', package_name: '', total_lessons: '' })
+  const [linkFallback, setLinkFallback] = useState<{ email: string; link: string; error: string } | null>(null)
 
   const disciplineName = (id: string) => disciplines.find(d => d.id === id)?.name ?? '—'
   const packagesForDiscipline = packages.filter(p => p.discipline_id === form.discipline_id)
@@ -94,7 +95,11 @@ export default function StudentsManager({ students, trainers, packages, enrollme
       body: JSON.stringify({ action: 'send_reset', email: s.email, redirect_to: `${siteUrl}/student/reset-password` }),
     })
     const data = await res.json()
-    if (!res.ok) { toast.error(data.error); return }
+    if (!res.ok) {
+      toast.error('Sıfırlama maili gönderilemedi.')
+      if (data.invite_link) setLinkFallback({ email: s.email, link: data.invite_link, error: data.error ?? 'Bilinmeyen hata' })
+      return
+    }
     toast.success('Şifre sıfırlama maili gönderildi.')
   }
 
@@ -124,8 +129,14 @@ export default function StudentsManager({ students, trainers, packages, enrollme
       if (!res.ok) throw new Error(data.error)
       setList(p => [data.student, ...p])
       setShowAdd(false)
+      const invitedEmail = form.email
       setForm({ full_name: '', email: '', phone: '', discipline_id: disciplines[0]?.id ?? '', trainer_id: '', package_id: '', package_name: '', total_lessons: '' })
-      toast.success('Öğrenci eklendi, davet maili gönderildi.')
+      if (data.mail_sent) {
+        toast.success('Öğrenci eklendi, davet maili gönderildi.')
+      } else {
+        toast.error('Öğrenci eklendi ama davet maili gönderilemedi.')
+        setLinkFallback({ email: invitedEmail, link: data.invite_link, error: data.mail_error ?? 'Bilinmeyen hata' })
+      }
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Hata.') }
     finally { setLoading(false) }
   }
@@ -405,6 +416,27 @@ export default function StudentsManager({ students, trainers, packages, enrollme
                 Kaydet
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Davet maili gönderilemediğinde bağlantıyı elle iletme */}
+      {linkFallback && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center gap-2 mb-2 text-amber-600">
+              <AlertTriangle size={18} />
+              <h3 className="font-bold text-lg">Davet Maili Gönderilemedi</h3>
+            </div>
+            <p className="text-sm text-gray-500 mb-1">{linkFallback.email}</p>
+            <p className="text-xs text-red-500 bg-red-50 border border-red-100 p-2 rounded-xl mb-4">{linkFallback.error}</p>
+            <p className="text-xs text-gray-500 mb-2">Hesap oluşturuldu. Bu bağlantıyı öğrenciye elden/WhatsApp ile iletebilirsiniz:</p>
+            <div className="flex gap-2 mb-5">
+              <input readOnly value={linkFallback.link} className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-xs text-gray-600" />
+              <button onClick={() => { navigator.clipboard.writeText(linkFallback.link); toast.success('Bağlantı kopyalandı.') }}
+                className="px-3 py-2.5 bg-[#FF6B35] text-white rounded-xl hover:bg-orange-500"><Copy size={15} /></button>
+            </div>
+            <button onClick={() => setLinkFallback(null)} className="w-full py-2.5 border border-gray-200 rounded-xl text-sm font-semibold hover:bg-gray-50">Kapat</button>
           </div>
         </div>
       )}
