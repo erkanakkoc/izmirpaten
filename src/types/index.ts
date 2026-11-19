@@ -124,6 +124,7 @@ export interface MailLog {
   applicant_email: string | null
   subject: string | null
   status: string
+  error_text: string | null
 }
 
 export interface SiteSettings {

@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { Resend } from 'resend'
-
-function getResend() {
-  const key = process.env.RESEND_API_KEY
-  return key ? new Resend(key) : null
-}
+import { sendMail } from '@/lib/mail'
 
 export async function POST(request: NextRequest) {
   // Auth kontrolü
@@ -18,34 +13,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Alıcı, konu ve içerik zorunludur.' }, { status: 400 })
   }
 
-  const resend = getResend()
-  if (!resend) return NextResponse.json({ error: 'Mail servisi yapılandırılmamış.' }, { status: 500 })
+  const service = await createServiceClient()
 
-  try {
-    const fromName = process.env.MAIL_FROM_NAME || 'Paten İzmir'
-    const fromEmail = process.env.MAIL_FROM_ADDRESS || 'noreply@patenizmir.com'
+  const result = await sendMail({
+    to,
+    subject,
+    html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">${body.replace(/\n/g, '<br/>')}</div>`,
+    text: body,
+  })
 
-    await resend.emails.send({
-      from: `${fromName} <${fromEmail}>`,
-      to,
-      subject,
-      html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">${body.replace(/\n/g, '<br/>')}</div>`,
-      replyTo: process.env.ADMIN_EMAIL,
-    })
+  // "Gönderildi" yalnızca SMTP gerçekten kabul ettikten sonra loglanır/gösterilir
+  await service.from('mail_logs').insert({
+    application_id: application_id || null,
+    applicant_name: applicant_name || to,
+    applicant_email: to,
+    subject,
+    status: result.success ? 'sent_by_admin' : 'failed',
+    error_text: result.success ? null : result.error,
+  })
 
-    // Gönderileni logla
-    const service = await createServiceClient()
-    await service.from('mail_logs').insert({
-      application_id: application_id || null,
-      applicant_name: applicant_name || to,
-      applicant_email: to,
-      subject,
-      status: 'sent_by_admin',
-    })
-
-    return NextResponse.json({ success: true })
-  } catch (err) {
-    console.error('Send email error:', err)
-    return NextResponse.json({ error: 'Mail gönderilemedi.' }, { status: 500 })
+  if (!result.success) {
+    return NextResponse.json({ error: result.error ?? 'Mail gönderilemedi.' }, { status: 502 })
   }
+
+  return NextResponse.json({ success: true })
 }

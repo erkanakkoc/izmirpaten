@@ -15,6 +15,7 @@ interface Props {
 function statusLabel(status: string) {
   if (status === 'sent') return { label: 'Bildirim', cls: 'bg-blue-100 text-blue-700' }
   if (status === 'sent_by_admin') return { label: 'Gönderildi', cls: 'bg-green-100 text-green-700' }
+  if (status === 'failed') return { label: 'Gönderilemedi', cls: 'bg-red-100 text-red-700' }
   return { label: 'Hata', cls: 'bg-red-100 text-red-700' }
 }
 
@@ -23,10 +24,13 @@ interface ComposeForm {
   subject: string
   body: string
   applicant_name: string
+  application_id: string | null
 }
 
-function ComposeModal({ onClose, onSent }: { onClose: () => void; onSent: (log: MailLog) => void }) {
-  const [form, setForm] = useState<ComposeForm>({ to: '', subject: 'Paten İzmir – Başvurunuz Hakkında', body: 'Merhaba,\n\n', applicant_name: '' })
+const EMPTY_COMPOSE: ComposeForm = { to: '', subject: 'Paten İzmir – Başvurunuz Hakkında', body: 'Merhaba,\n\n', applicant_name: '', application_id: null }
+
+function ComposeModal({ initial, onClose, onSent }: { initial: ComposeForm; onClose: () => void; onSent: (log: MailLog) => void }) {
+  const [form, setForm] = useState<ComposeForm>(initial)
   const [sending, setSending] = useState(false)
 
   const set = (k: keyof ComposeForm, v: string) => setForm(p => ({ ...p, [k]: v }))
@@ -46,11 +50,12 @@ function ComposeModal({ onClose, onSent }: { onClose: () => void; onSent: (log: 
       onSent({
         id: Date.now().toString(),
         created_at: new Date().toISOString(),
-        application_id: null,
+        application_id: form.application_id,
         applicant_name: form.applicant_name || form.to,
         applicant_email: form.to,
         subject: form.subject,
         status: 'sent_by_admin',
+        error_text: null,
       })
       onClose()
     } catch (err: unknown) {
@@ -115,6 +120,12 @@ export default function MailClient({ mails: initialMails, template: initialTempl
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<'logs' | 'compose' | 'template'>('logs')
   const [showCompose, setShowCompose] = useState(false)
+  const [composeInitial, setComposeInitial] = useState<ComposeForm>(EMPTY_COMPOSE)
+
+  const openCompose = (prefill?: Partial<ComposeForm>) => {
+    setComposeInitial({ ...EMPTY_COMPOSE, ...prefill })
+    setShowCompose(true)
+  }
 
   const saveTemplate = async () => {
     setSaving(true)
@@ -141,7 +152,7 @@ export default function MailClient({ mails: initialMails, template: initialTempl
             </button>
           ))}
         </div>
-        <button onClick={() => setShowCompose(true)}
+        <button onClick={() => openCompose()}
           className="flex items-center gap-2 px-4 py-2.5 bg-[#1B2A4A] text-white rounded-xl text-sm font-bold hover:bg-[#2d4a8a] transition-all">
           <Plus size={15} /> Yeni Mail Gönder
         </button>
@@ -157,31 +168,34 @@ export default function MailClient({ mails: initialMails, template: initialTempl
             {mails.map((m) => {
               const { label, cls } = statusLabel(m.status)
               const isSentByAdmin = m.status === 'sent_by_admin'
+              const isFailed = m.status === 'failed'
               return (
-                <div key={m.id} className={`px-6 py-4 flex items-center justify-between gap-4 ${isSentByAdmin ? 'bg-green-50/30' : ''}`}>
+                <div key={m.id} className={`px-6 py-4 flex items-center justify-between gap-4 ${isSentByAdmin ? 'bg-green-50/30' : isFailed ? 'bg-red-50/30' : ''}`}>
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isSentByAdmin ? 'bg-green-50' : 'bg-orange-50'}`}>
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isSentByAdmin ? 'bg-green-50' : isFailed ? 'bg-red-50' : 'bg-orange-50'}`}>
                       {isSentByAdmin
                         ? <Send size={15} className="text-green-600" />
-                        : <Mail size={15} className="text-[#FF6B35]" />}
+                        : <Mail size={15} className={isFailed ? 'text-red-500' : 'text-[#FF6B35]'} />}
                     </div>
                     <div className="min-w-0">
                       <div className="font-semibold text-sm text-[#1B2A4A] truncate">
                         {isSentByAdmin ? `→ ${m.applicant_name}` : m.applicant_name}
                       </div>
                       <div className="text-xs text-gray-400 truncate">{m.subject}</div>
+                      {isFailed && m.error_text && <div className="text-xs text-red-500 truncate mt-0.5">{m.error_text}</div>}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
                     {m.applicant_email && !isSentByAdmin && (
                       <button
-                        onClick={() => {
-                          setShowCompose(true)
-                          // Pre-fill compose with reply data — handled via state lifting if needed
-                        }}
+                        onClick={() => openCompose({
+                          to: m.applicant_email ?? '',
+                          applicant_name: m.applicant_name ?? '',
+                          application_id: m.application_id,
+                        })}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B2A4A] text-white rounded-xl text-xs font-semibold hover:bg-[#2d4a8a] transition-all"
                       >
-                        <Send size={12} /> Yanıtla
+                        <Send size={12} /> {isFailed ? 'Tekrar Dene' : 'Yanıtla'}
                       </button>
                     )}
                     <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${cls}`}>{label}</span>
@@ -222,6 +236,7 @@ export default function MailClient({ mails: initialMails, template: initialTempl
 
       {showCompose && (
         <ComposeModal
+          initial={composeInitial}
           onClose={() => setShowCompose(false)}
           onSent={(log) => {
             setMails(p => [log, ...p])

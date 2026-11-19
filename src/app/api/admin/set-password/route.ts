@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { sendMail, brandedEmailHtml } from '@/lib/mail'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -29,10 +30,27 @@ export async function POST(req: NextRequest) {
   if (action === 'send_reset') {
     if (!email) return NextResponse.json({ error: 'E-posta zorunlu.' }, { status: 400 })
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://patenizmir.com'
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: redirect_to ?? `${siteUrl}/student/reset-password`,
+    const { data: linkData, error: linkErr } = await service.auth.admin.generateLink({
+      type: 'recovery', email, options: { redirectTo: redirect_to ?? `${siteUrl}/student/reset-password` },
     })
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (linkErr || !linkData?.properties?.action_link) {
+      return NextResponse.json({ error: linkErr?.message ?? 'Bağlantı oluşturulamadı.' }, { status: 400 })
+    }
+    const actionLink = linkData.properties.action_link
+    const result = await sendMail({
+      to: email,
+      subject: '🛼 Paten İzmir — Şifre Sıfırlama',
+      html: brandedEmailHtml('Şifre Sıfırlama', `
+        <p>Merhaba,</p>
+        <p>Şifreni sıfırlamak için aşağıdaki bağlantıya tıkla:</p>
+        <p style="text-align:center;margin:28px 0">
+          <a href="${actionLink}" style="background:#FF6B35;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:bold">Şifremi Sıfırla</a>
+        </p>
+        <p style="color:#888;font-size:13px">Bağlantı çalışmazsa şu adresi tarayıcına yapıştır:<br/>${actionLink}</p>`),
+    })
+    if (!result.success) {
+      return NextResponse.json({ error: result.error ?? 'Mail gönderilemedi.', invite_link: actionLink }, { status: 502 })
+    }
     return NextResponse.json({ success: true })
   }
 

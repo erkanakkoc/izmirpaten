@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { sendMail, brandedEmailHtml } from '@/lib/mail'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -10,19 +11,50 @@ export async function POST(req: NextRequest) {
   if (!email || !full_name) return NextResponse.json({ error: 'Ad ve e-posta zorunlu.' }, { status: 400 })
 
   const service = await createServiceClient()
-
-  // Supabase Auth davet — redirectTo Supabase Dashboard'da Redirect URLs'e eklenmiş olmalı
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://patenizmir.com'
-  const { data: authData, error: authErr } = await service.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${siteUrl}/student/login`,
+
+  // Önce davet (invite) linki üretmeyi dene — kullanıcı yoksa oluşturur.
+  let linkType: 'invite' | 'recovery' = 'invite'
+  let { data: linkData, error: linkErr } = await service.auth.admin.generateLink({
+    type: 'invite', email, options: { redirectTo: `${siteUrl}/student/login` },
   })
-  if (authErr && !authErr.message.includes('already')) {
-    console.error('Invite student error:', authErr)
-    return NextResponse.json({ error: `Davet gönderilemedi: ${authErr.message}` }, { status: 400 })
+
+  // Kullanıcı zaten kayıtlıysa (örn. daha önce başvuru sırasında e-posta ile
+  // temas edilmiş), invite linki üretilemez — bunun yerine şifre belirleme
+  // (recovery) linki üret.
+  if (linkErr) {
+    linkType = 'recovery'
+    const retry = await service.auth.admin.generateLink({
+      type: 'recovery', email, options: { redirectTo: `${siteUrl}/student/login` },
+    })
+    linkData = retry.data
+    linkErr = retry.error
   }
 
-  const authUserId = authData?.user?.id
-  if (!authUserId) return NextResponse.json({ error: 'Kullanıcı oluşturulamadı.' }, { status: 400 })
+  if (linkErr || !linkData?.user) {
+    console.error('generateLink error:', linkErr)
+    return NextResponse.json({ error: `Hesap/bağlantı oluşturulamadı: ${linkErr?.message ?? 'bilinmeyen hata'}` }, { status: 400 })
+  }
+
+  const authUserId = linkData.user.id
+  const actionLink = linkData.properties.action_link
+
+  // Markalı davet maili — kendi SMTP'mizden
+  const mailResult = await sendMail({
+    to: email,
+    subject: linkType === 'invite' ? '🛼 Paten İzmir — Öğrenci Hesabın Hazır!' : '🛼 Paten İzmir — Şifre Belirleme',
+    html: brandedEmailHtml(
+      linkType === 'invite' ? 'Hoş Geldin! 🛼' : 'Şifre Belirleme',
+      `<p>Merhaba ${full_name},</p>
+       <p>${linkType === 'invite'
+          ? 'Paten İzmir öğrenci hesabın oluşturuldu. Aşağıdaki bağlantıya tıklayarak şifreni belirleyip giriş yapabilirsin:'
+          : 'Hesabın için bir şifre belirleme bağlantısı oluşturuldu. Aşağıdaki bağlantıya tıklayarak giriş yapabilirsin:'}</p>
+       <p style="text-align:center;margin:28px 0">
+         <a href="${actionLink}" style="background:#FF6B35;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:bold">Hesabımı Aç</a>
+       </p>
+       <p style="color:#888;font-size:13px">Bağlantı çalışmazsa şu adresi tarayıcına yapıştır:<br/>${actionLink}</p>`
+    ),
+  })
 
   // Students tablosuna ekle
   const { data: student, error: studentErr } = await service.from('students').upsert({
@@ -62,5 +94,12 @@ export async function POST(req: NextRequest) {
     link: '/admin/students',
   })
 
-  return NextResponse.json({ success: true, student })
+  return NextResponse.json({
+    success: true,
+    student,
+    mail_sent: mailResult.success,
+    mail_error: mailResult.success ? null : mailResult.error,
+    // Mail gitmese bile admin bağlantıyı elle iletebilsin
+    invite_link: actionLink,
+  })
 }
