@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { Resend } from 'resend'
-
-function getResend() {
-  const key = process.env.RESEND_API_KEY
-  return key ? new Resend(key) : null
-}
+import { sendMail } from '@/lib/mail'
 
 export async function POST(request: NextRequest) {
   try {
@@ -116,8 +111,7 @@ export async function POST(request: NextRequest) {
     const disciplineName = discipline?.name ?? '—'
 
     const adminEmail = process.env.ADMIN_EMAIL
-    const resend = getResend()
-    if (adminEmail && resend) {
+    if (adminEmail) {
       const templateHtml = buildEmailHtml(templateSetting?.value, {
         discipline_name: disciplineName,
         full_name,
@@ -134,25 +128,21 @@ export async function POST(request: NextRequest) {
         student_age: student_age?.toString() || '—',
       })
 
-      try {
-        await resend.emails.send({
-          from: 'Paten İzmir <noreply@patenizmir.com>',
-          to: adminEmail,
-          subject: `🛼 Yeni Başvuru (${disciplineName}): ${full_name} – ${finalPackageName}`,
-          html: templateHtml,
-        })
+      // Mail hatası başvuruyu engellemez — ama başarısızlık gerçekten loglanır
+      const result = await sendMail({
+        to: adminEmail,
+        subject: `🛼 Yeni Başvuru (${disciplineName}): ${full_name} – ${finalPackageName}`,
+        html: templateHtml,
+      })
 
-        await supabase.from('mail_logs').insert({
-          application_id: application.id,
-          applicant_name: full_name,
-          applicant_email: email || null,
-          subject: `Yeni Başvuru: ${full_name} – ${finalPackageName}`,
-          status: 'sent',
-        })
-      } catch (mailError) {
-        console.error('Resend error:', mailError)
-        // Mail hatası başvuruyu engellemez
-      }
+      await supabase.from('mail_logs').insert({
+        application_id: application.id,
+        applicant_name: full_name,
+        applicant_email: email || null,
+        subject: `Yeni Başvuru: ${full_name} – ${finalPackageName}`,
+        status: result.success ? 'sent' : 'failed',
+        error_text: result.success ? null : result.error,
+      })
     }
 
     return NextResponse.json({ success: true, id: application.id })
